@@ -14,8 +14,7 @@ void setup() {
 }
 
 void loop() {
-    printDepth();
-    delay(1000);
+    
 }
 
 long microsecondsToCentimeters(long microseconds) {
@@ -102,14 +101,4 @@ void setDepthOffset(int value) {
 // Sets the number of samples taken when scanning for depth
 void setDepthSamplingCount(int value) {
     depthSamplingCount = value;
-}
-
-// TEMP remove this method when done testing
-void printDepth() {
-    long depth = checkDepth();
-    Serial.print("Water Depth : ");
-    Serial.print(depth);
-    Serial.print(" cm | Offset: ");
-    Serial.print(depthOffset);
-    Serial.println(" cm");
 }
