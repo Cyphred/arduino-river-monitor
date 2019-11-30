@@ -1,7 +1,16 @@
+#include <SPI.h> // For SPI Communication with the SD Card Module
+#include <SD.h> // Library for the SD Card Module
+
+const int sdPin = 4; // CS Pin of SD Card Module
 const int pingPin = 7;  // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 6;  // Echo Pin of Ultrasonic Sensor
 long depthOffset; // CM distance of the ultrasonic sensor from the bottom of the body of water
 int depthSamplingCount;
+
+boolean sdModuleInitialized;
+File openFile;
+String logFile = "log.txt";
+String configFile = "config.txt";
 
 void setup() {
     Serial.begin(9600);
@@ -11,6 +20,14 @@ void setup() {
     //TODO Make a proper initialization for depth offset and sampling count, preferably from a config file such as a json to be stored in the SD card module
     setDepthOffset(14); // Sets depth offset to 14 CM for the glass that I had on my table, with the sensor hovering 14 cm from the bottom of the glass
     setDepthSamplingCount(50); // Sets the number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
+
+    // Initializes the SD Card module and chekcs if it is successful
+    if (!SD.begin(sdPin)) {
+        sdModuleInitialized = false;
+    }
+    else {
+        sdModuleInitialized = true;
+    }
 }
 
 void loop() {
@@ -101,4 +118,19 @@ void setDepthOffset(int value) {
 // Sets the number of samples taken when scanning for depth
 void setDepthSamplingCount(int value) {
     depthSamplingCount = value;
+}
+
+boolean writeToLogFile(String input) {
+    boolean writeSuccess = false;
+
+    if (sdModuleInitialized) {
+        openFile = SD.open(logFile, FILE_WRITE);
+        if (openFile) {
+            openFile.println(input);
+            openFile.close();
+            writeSuccess = true;
+        }
+    }
+
+    return writeSuccess;
 }
