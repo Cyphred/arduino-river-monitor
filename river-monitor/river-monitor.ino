@@ -1,11 +1,13 @@
 const int pingPin = 7;  // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 6;  // Echo Pin of Ultrasonic Sensor
-long depthOffset = 14; // CM distance of the ultrasonic sensor from the bottom of the body of water
+long depthOffset; // CM distance of the ultrasonic sensor from the bottom of the body of water
 
 void setup() {
   Serial.begin(9600);
   pinMode(pingPin, OUTPUT);
   pinMode(echoPin, INPUT);
+
+  setDepthOffset(14); // Sets depth offset to 14 CM for the glass that I had on my table, with the sensor hovering 14 cm from the bottom of the glass
 }
 
 void loop() {
@@ -89,4 +91,8 @@ long checkDepth() {
     }
 
     return (depthOffset - returnValue);
+}
+
+void setDepthOffset(int value) {
+    depthOffset = value;
 }
