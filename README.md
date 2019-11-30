@@ -19,7 +19,7 @@ This module will keep track of the current time to allow the tagging of data wit
 
 ## II. Functions
 #### A. Measurement
-- [ ] Measure water depth
+- [x] Measure water depth
 - [ ] Measure flow rate
 
 #### B. Monitoring
