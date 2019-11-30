@@ -1,20 +1,20 @@
 const int pingPin = 7;  // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 6;  // Echo Pin of Ultrasonic Sensor
 long depthOffset; // CM distance of the ultrasonic sensor from the bottom of the body of water
+int depthSamplingCount;
 
 void setup() {
-  Serial.begin(9600);
-  pinMode(pingPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+    Serial.begin(9600);
+    pinMode(pingPin, OUTPUT);
+    pinMode(echoPin, INPUT);
 
-  setDepthOffset(14); // Sets depth offset to 14 CM for the glass that I had on my table, with the sensor hovering 14 cm from the bottom of the glass
+    //TODO Make a proper initialization for depth offset and sampling count, preferably from a config file such as a json to be stored in the SD card module
+    setDepthOffset(14); // Sets depth offset to 14 CM for the glass that I had on my table, with the sensor hovering 14 cm from the bottom of the glass
+    setDepthSamplingCount(50); // Sets the number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
 }
 
 void loop() {
-    long depth = checkDepth();
-    Serial.print("Water Depth : ");
-    Serial.print(depth);
-    Serial.println(" cm");
+    printDepth();
     delay(1000);
 }
 
@@ -22,12 +22,13 @@ long microsecondsToCentimeters(long microseconds) {
    return microseconds / 29 / 2;
 }
 
-// Measures the depth for 5 seconds and returns the most common value
+// Uses the value of depthSamplingCount as the number of times to measure water depth and returns the most common value.
+// Each sample takes 100 ms
 long checkDepth() {
-    long readValues[50];
+    long readValues[depthSamplingCount];
 
     // loop 50 times with a 100ms delay between each read
-    for (int x = 0; x < 50; x++) {
+    for (int x = 0; x < depthSamplingCount; x++) {
         long duration, cm;
     
         digitalWrite(pingPin, LOW);
@@ -42,10 +43,10 @@ long checkDepth() {
         delay(100);
     }
 
-    long uniqueValues[50]; // Stores all the unique values read
-    int uniqueValueInstances[50]; // Keeps track of the instances a value has appeared in readValues
+    long uniqueValues[depthSamplingCount]; // Stores all the unique values read
+    int uniqueValueInstances[depthSamplingCount]; // Keeps track of the instances a value has appeared in readValues
     // Fill uniqueValueInstances with zeroes
-    for (int x = 0; x < 50; x++) {
+    for (int x = 0; x < depthSamplingCount; x++) {
         uniqueValueInstances[x] = 0;
     }
     int foundUniqueValues = 0; // Keeps track of the number of unique values stored
@@ -93,6 +94,22 @@ long checkDepth() {
     return (depthOffset - returnValue);
 }
 
+// Sets the distance of the depth sensor from the bottom of the body of water
 void setDepthOffset(int value) {
     depthOffset = value;
+}
+
+// Sets the number of samples taken when scanning for depth
+void setDepthSamplingCount(int value) {
+    depthSamplingCount = value;
+}
+
+// TEMP remove this method when done testing
+void printDepth() {
+    long depth = checkDepth();
+    Serial.print("Water Depth : ");
+    Serial.print(depth);
+    Serial.print(" cm | Offset: ");
+    Serial.print(depthOffset);
+    Serial.println(" cm");
 }
