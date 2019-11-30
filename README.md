@@ -31,5 +31,14 @@ This module will keep track of the current time to allow the tagging of data wit
 - [ ] Send status report
 
 #### D. Control
-- [ ] Web Interface
 - [ ] SMS Commands
+
+#### E. Web Interface
+- [ ] Login
+- [ ] Show current readings
+- [ ] Show logged data
+- [ ] Show storage status
+- [ ] Configure SMS Notification
+- [ ] Show device status
+- [ ] Configure data analysis beavior
+- [ ] Configure alert parameters
