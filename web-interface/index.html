@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <link href="style.css" rel="stylesheet">
+        <title>Arduino River Monitor</title>
+    </head>
+    <body>
+        <div id="container">
+            <!--Covers the screen with a prompt if javascript is disabled-->
+            <table id="javascriptWarning">
+                <td align="center">
+                    <p>It looks like javascript is disabled.<br>Please enable javascript in your browser's settings.</p>
+                </td>
+            </table>
+
+            <table style="width: 100%; height: 100%; position: fixed;">
+                <tr>
+                    <td style="height: 100%;" align="center">
+                            <h1>Arduino River Monitor</h1>
+                        <table style="width: 100%;">
+                            <tr>
+                                <td align="center">
+                                    <a href="monitoring.html">
+                                        <div class="navbutton-large">
+                                            Monitoring
+                                        </div>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td align="center">
+                                    <a href="sms.html">
+                                        <div class="navbutton-large">
+                                            SMS
+                                        </div>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td align="center">
+                                    <a href="test.html">
+                                        <div class="navbutton-large">
+                                            Test
+                                        </div>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td align="center">
+                                    <a href="settings.html">
+                                        <div class="navbutton-large">
+                                            Settings
+                                        </div>
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div id="footer" align="center">
+                            Cyphred © 2019 | Visit my <a href="https://github.com/Cyphred/" class="footerLink">GitHub</a>, or drop me an email at <b>jeremyzantua@gmail.com</b>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <script type="text/javascript">
+            // Hides the "enable javascript" warning
+            document.getElementById("javascriptWarning").style.display = "none";
+        </script>
+    </body>
+</html>
