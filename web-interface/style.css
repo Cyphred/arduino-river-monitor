@@ -3,6 +3,14 @@ body {
     font-family: Arial;
 }
 
+td {
+    padding: 5px;
+}
+
+th {
+    padding: 5px;
+}
+
 a {
     text-decoration: none;
     color: inherit;
@@ -20,6 +28,13 @@ a {
     background: #f7f7f7;
 }
 
-td {
-    padding: 5px;
+#navbar {
+    padding: 0px 20px 0px 20px;
+    box-shadow: 0px 1px;
+}
+
+.nav-button {
+    padding: 10px;
+    background: #f7f7f7;
+    border: solid 1px #000;
 }

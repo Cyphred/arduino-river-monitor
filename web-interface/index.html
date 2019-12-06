@@ -14,23 +14,83 @@
                 </td>
             </table>
 
-            <h3>Arduino River Monitor</h3>
-            <a href="monitoring.html">
-                <input type="button" value="Monitoring">
-            </a>
-            <a href="sms.html">
-                <input type="button" value="SMS">
-            </a>
-            <a href="test.html">
-                <input type="button" value="Test">
-            </a>
-            <a href="settings.html">
-                <input type="button" value="Settings">
-            </a>
+            <table id="navbar">
+                <td width="100%">
+                    <h3>Arduino River Monitor</h3>
+                </td>
+                <td>
+                    <input type="button" value="Dashboard" class="nav-button">
+                </td>
+                <td>
+                    <a href="sms.html">
+                        <input type="button" value="SMS" class="nav-button">
+                    </a>
+                </td>
+                <td>
+                    <a href="test.html">
+                        <input type="button" value="Test" class="nav-button">
+                    </a>
+                </td>
+                <td>
+                    <a href="settings.html">
+                        <input type="button" value="Settings" class="nav-button">
+                    </a>
+                </td>
+            </table>
+
+            <h1>Dashboard</h1>
+            <table border="1">
+                <tr>
+                    <th colspan="2">
+                        Current Readings
+                    </th>
+                </tr>
+                <tr>
+                    <td>
+                        Time
+                    </td>
+                    <td>
+                        <span id="time"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Date
+                    </td>
+                    <td>
+                        <span id="date"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Flow Rate
+                    </td>
+                    <td>
+                        <span id="flow-rate-current"></span>
+                        <span id="flow-rate-unit"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Depth
+                    </td>
+                    <td>
+                        <span id="depth-current"></span>
+                        <span id="depth-unit"></span>
+                    </td>
+                </tr>
+            </table>
         </div>
         <script type="text/javascript">
             // Hides the "enable javascript" warning
             document.getElementById("javascript-warning").style.display = "none";
+
+            document.getElementById("time").innerHTML = "23:18:31";
+            document.getElementById("date").innerHTML = "THU, DEC 05 2019";
+            document.getElementById("flow-rate-current").innerHTML = "22.5";
+            document.getElementById("flow-rate-unit").innerHTML = "L/min";
+            document.getElementById("depth-current").innerHTML = "6.7";
+            document.getElementById("depth-unit").innerHTML = "M";
         </script>
     </body>
 </html>
