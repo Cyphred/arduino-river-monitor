@@ -29,12 +29,12 @@ a {
 }
 
 #navbar {
-    padding: 0px 20px 0px 20px;
+    padding-left: 10px;
     box-shadow: 0px 1px;
 }
 
 .nav-button {
     padding: 10px;
     background: #f7f7f7;
-    border: solid 1px #000;
+    border: none;
 }
