@@ -131,6 +131,7 @@ long checkDepth() {
     return (depthOffset - returnValue);
 }
 
+
 boolean writeToFile(String data, String file) {
     boolean writeSuccess = false;
 
@@ -165,28 +166,21 @@ boolean writeToFile(String data, String file) {
     return writeSuccess;
 }
 
+// Reads settings from the config file and applies them
 boolean applyConfigFile() {
-    int appliedSettings = 0;
-
-    // TEMP serialDebug Get rid of this to save memory
-    if (serialDebug) {
-        Serial.println("Applying config settings...");
-    }
+    int appliedSettings = 0; // Keeps track of the number of settings applied. Each setting has a corresponding code.
 
     if (sdModuleInitialized) {
-        openFile = SD.open(configFile);
+        openFile = SD.open(configFile); // Opens the config file
         if (openFile) {
-            Serial.println("File opened");
-            String tempRead = "";
-            int settingID = 0;
+            String tempRead = ""; // temporarily keeps track of the read characters from the config file
+            int settingID = 0; // keeps track of the code of the next setting to be updated
             while (openFile.available()) {
-                byte readByte = openFile.read();
-                Serial.print("Read ");
-                Serial.println((char)readByte);
+                byte readByte = openFile.read(); // store read byte
 
+                // if read byte is a separator or a line break, parse the current contents of tempRead into an integer
+                // and set it to the currently selected setting
                 if (readByte == 126 || readByte == 10) {
-                    Serial.print("Attempting to apply ");
-                    Serial.println(tempRead);
                     switch (settingID) {
                         case 0:
                             scanInterval = tempRead.toInt();
@@ -219,16 +213,6 @@ boolean applyConfigFile() {
         else if (!openFile && serialDebug) {
             // TEMP serialDebug Get rid of this to save memory
             Serial.println("Could not open config file");
-        }
-    }
-
-    // TEMP serialDebug Get rid of this to save memory
-    if (serialDebug) {
-        if (appliedSettings == 3) {
-            Serial.println("Settings applied");
-        }
-        else {
-            Serial.println("Settings not applied");
         }
     }
 
