@@ -2,8 +2,8 @@
 #include <SD.h> // Library for the SD Card Module
 
 const int sdPin = 4; // CS Pin of SD Card Module
-const int pingPin = 7;  // Trigger Pin of Ultrasonic Sensor
-const int echoPin = 6;  // Echo Pin of Ultrasonic Sensor
+const int pingPin = 6;  // Trigger Pin of Ultrasonic Sensor
+const int echoPin = 5;  // Echo Pin of Ultrasonic Sensor
 long depthOffset; // CM distance of the ultrasonic sensor from the bottom of the body of water
 int depthSamplingCount;
 
