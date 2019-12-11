@@ -1,9 +1,13 @@
 #include <SPI.h> // For SPI Communication with the SD Card Module
 #include <SD.h> // Library for the SD Card Module
+#include "DS3231.h"
 
 const int sdPin = 4; // CS Pin of SD Card Module
 const int pingPin = 6;  // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 5;  // Echo Pin of Ultrasonic Sensor
+
+RTClib RTC;
+uint32_t lastScan;
 
 // Variables to be set by config file
 int scanInterval;       // [SETTING_ID 0] Time in between scans in seconds
@@ -22,6 +26,7 @@ void setup() {
     Serial.begin(9600);
     pinMode(pingPin, OUTPUT);
     pinMode(echoPin, INPUT);
+    Wire.begin();
 
     // Initializes the SD Card module and chekcs if it is successful
     if (!SD.begin(sdPin)) {
@@ -52,7 +57,10 @@ void setup() {
 }
 
 void loop() {
-    
+    DateTime now = RTC.now();
+    if ((now.unixtime() - lastScan) >= scanInterval) {
+        scan();
+    }
 }
 
 long microsecondsToCentimeters(long microseconds) {
@@ -131,6 +139,9 @@ long checkDepth() {
     return (depthOffset - returnValue);
 }
 
+double checkFlowRate() {
+    return 0;
+}
 
 boolean writeToFile(String data, String file) {
     boolean writeSuccess = false;
@@ -220,4 +231,31 @@ boolean applyConfigFile() {
         return true;
     }
     return false;
+}
+
+int scan() {
+    // DATA.LOG Entry format
+    // Time Start / Time End / Flow Rate / Depth / Offset
+
+    String logEntry = "";
+    DateTime now = RTC.now();
+    uint32_t scanStart = now.unixtime();
+    logEntry += scanStart;
+    logEntry += char(126);
+
+    double flowRate = checkFlowRate();
+    long depth = checkDepth();
+
+    now = RTC.now();
+    lastScan = now.unixtime();
+    logEntry += lastScan;
+    logEntry += char(126);
+    logEntry += flowRate;
+    logEntry += char(126);
+    logEntry += depth;
+    logEntry += char(126);
+    logEntry += depthOffset;
+    logEntry += char(126);
+    
+    writeToFile(logEntry, logFile);
 }
