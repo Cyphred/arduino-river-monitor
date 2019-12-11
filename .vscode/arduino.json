@@ -1,5 +1,5 @@
 {
     "board": "arduino:avr:uno",
-    "port": "COM3",
-    "sketch": "river-monitor\\river-monitor.ino"
+    "port": "/dev/ttyACM0",
+    "sketch": "river-monitor/river-monitor.ino"
 }

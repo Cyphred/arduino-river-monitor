@@ -4,29 +4,50 @@
 const int sdPin = 4; // CS Pin of SD Card Module
 const int pingPin = 6;  // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 5;  // Echo Pin of Ultrasonic Sensor
-long depthOffset; // CM distance of the ultrasonic sensor from the bottom of the body of water
-int depthSamplingCount;
+
+// Variables to be set by config file
+int scanInterval;       // [SETTING_ID 0] Time in between scans in seconds
+long depthOffset;       // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
+int depthSamplingCount; // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
 
 boolean sdModuleInitialized;
 File openFile;
-String logFile = "log.txt";
-String configFile = "config.txt";
+String logFile = "DATA.LOG";
+String cacheFile = "CACHE.CAC";
+String configFile = "SETTINGS.CFG";
+
+boolean serialDebug = true;
 
 void setup() {
     Serial.begin(9600);
     pinMode(pingPin, OUTPUT);
     pinMode(echoPin, INPUT);
 
-    //TODO Make a proper initialization for depth offset and sampling count, preferably from a config file such as a json to be stored in the SD card module
-    setDepthOffset(14); // Sets depth offset to 14 CM for the glass that I had on my table, with the sensor hovering 14 cm from the bottom of the glass
-    setDepthSamplingCount(50); // Sets the number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
-
     // Initializes the SD Card module and chekcs if it is successful
     if (!SD.begin(sdPin)) {
         sdModuleInitialized = false;
+        Serial.println("SD not Initialized"); // TEMP Remove this to save memory
     }
     else {
         sdModuleInitialized = true;
+        Serial.println("SD Initialized"); // TEMP Remove this to save memory
+    }
+
+    applyConfigFile();
+    
+    // TEMP Remove this to save memory
+    if (serialDebug) {
+        Serial.print("Scan Interval : ");
+        Serial.print(scanInterval);
+        Serial.println(" seconds");
+
+        Serial.print("Depth Offset : ");
+        Serial.print(depthOffset);
+        Serial.println(" cm");
+
+        Serial.print("Depth Sampling Count : ");
+        Serial.print(depthSamplingCount);
+        Serial.println(" samples");
     }
 }
 
@@ -110,27 +131,109 @@ long checkDepth() {
     return (depthOffset - returnValue);
 }
 
-// Sets the distance of the depth sensor from the bottom of the body of water
-void setDepthOffset(int value) {
-    depthOffset = value;
-}
-
-// Sets the number of samples taken when scanning for depth
-void setDepthSamplingCount(int value) {
-    depthSamplingCount = value;
-}
-
-boolean writeToLogFile(String input) {
+boolean writeToFile(String data, String file) {
     boolean writeSuccess = false;
 
+    // TEMP serialDebug Get rid of this to save memory
+    if (serialDebug) {
+        Serial.print("Writing \"");
+        Serial.print(data);
+        Serial.print("\" to \"");
+        Serial.print(file);
+        Serial.println("\"");
+    }
+
     if (sdModuleInitialized) {
-        openFile = SD.open(logFile, FILE_WRITE);
+        openFile = SD.open(file, FILE_WRITE);
         if (openFile) {
-            openFile.println(input);
+            openFile.println(data);
             openFile.close();
             writeSuccess = true;
         }
     }
 
+    // TEMP serialDebug Get rid of this to save memory
+    if (serialDebug) {
+        if (writeSuccess) {
+            Serial.println("Write Successful");
+        }
+        else {
+            Serial.println("Write Unsuccessful");
+        }
+    }
+
     return writeSuccess;
+}
+
+boolean applyConfigFile() {
+    int appliedSettings = 0;
+
+    // TEMP serialDebug Get rid of this to save memory
+    if (serialDebug) {
+        Serial.println("Applying config settings...");
+    }
+
+    if (sdModuleInitialized) {
+        openFile = SD.open(configFile);
+        if (openFile) {
+            Serial.println("File opened");
+            String tempRead = "";
+            int settingID = 0;
+            while (openFile.available()) {
+                byte readByte = openFile.read();
+                Serial.print("Read ");
+                Serial.println((char)readByte);
+
+                if (readByte == 126 || readByte == 10) {
+                    Serial.print("Attempting to apply ");
+                    Serial.println(tempRead);
+                    switch (settingID) {
+                        case 0:
+                            scanInterval = tempRead.toInt();
+                            appliedSettings++;
+                            break;
+
+                        case 1:
+                            depthOffset = tempRead.toInt();
+                            appliedSettings++;
+                            break;
+
+                        case 2:
+                            depthSamplingCount = tempRead.toInt();
+                            appliedSettings++;
+                            break;
+                        
+                        default:
+                            break;
+                    }
+
+                    tempRead = "";
+                    settingID++;
+                }
+                else if (readByte != 10) {
+                    tempRead += (char)readByte;
+                }
+            }
+            openFile.close();
+        }
+        else if (!openFile && serialDebug) {
+            // TEMP serialDebug Get rid of this to save memory
+            Serial.println("Could not open config file");
+        }
+    }
+
+    // TEMP serialDebug Get rid of this to save memory
+    if (serialDebug) {
+        if (appliedSettings == 3) {
+            Serial.println("Settings applied");
+        }
+        else {
+            Serial.println("Settings not applied");
+        }
+    }
+
+    if (appliedSettings == 3) {
+        return true;
+    }
+    return false;
 }
