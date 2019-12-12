@@ -19,3 +19,8 @@
 - GND → GND
 - SCL → AREF+2
 - SDA → AREF+1
+
+#### YF-S201 Flow Rate Sensor
+- VCC → 5V
+- GND → GND
+- DATA → D2
