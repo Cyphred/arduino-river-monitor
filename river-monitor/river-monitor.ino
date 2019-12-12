@@ -2,31 +2,58 @@
 #include <SD.h> // Library for the SD Card Module
 #include "DS3231.h"
 
-const int sdPin = 4; // CS Pin of SD Card Module
+// Flow Rate Sensor
+byte sensorInterrupt = 0;  // 0 = digital pin 2
+byte sensorPin       = 2;
+// The hall-effect flow sensor outputs approximately 4.5 pulses per second per
+// litre/minute of flow.
+float calibrationFactor = 4.5;
+volatile byte pulseCount = 0;  
+float flowRate;
+unsigned int flowMilliLitres;
+unsigned long oldFlowRateMeasureTime;
+
+// Ultrasonic Sensor
 const int pingPin = 6;  // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 5;  // Echo Pin of Ultrasonic Sensor
 
+// RTC Module
 RTClib RTC;
-uint32_t lastScan;
+uint32_t lastScan = 0;
 
-// Variables to be set by config file
+// SD Card Module
+const int sdPin = 4; // CS Pin of SD Card Module
+boolean sdModuleInitialized;
+File openFile;
+String logFile = "DATA";
+String cacheFile = "CACHE";
+String configFile = "SETTINGS";
+// Variables to be set by config file to be read from the SD Card
 int scanInterval;       // [SETTING_ID 0] Time in between scans in seconds
 long depthOffset;       // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
 int depthSamplingCount; // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
-
-boolean sdModuleInitialized;
-File openFile;
-String logFile = "DATA.LOG";
-String cacheFile = "CACHE.CAC";
-String configFile = "SETTINGS.CFG";
 
 boolean serialDebug = true;
 
 void setup() {
     Serial.begin(9600);
+    Wire.begin();
+
+    // Ultrasonic Sensor
     pinMode(pingPin, OUTPUT);
     pinMode(echoPin, INPUT);
-    Wire.begin();
+
+    // Flow Rate Sensor
+    pinMode(sensorPin, INPUT);
+    digitalWrite(sensorPin, HIGH);
+    pulseCount = 0;
+    flowRate = 0.0;
+    flowMilliLitres = 0;
+    oldFlowRateMeasureTime = 0;
+    // The Hall-effect sensor is connected to pin 2 which uses interrupt 0.
+    // Configured to trigger on a FALLING state change (transition from HIGH
+    // state to LOW state)
+    attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
 
     // Initializes the SD Card module and chekcs if it is successful
     if (!SD.begin(sdPin)) {
@@ -38,7 +65,12 @@ void setup() {
         Serial.println("SD Initialized"); // TEMP Remove this to save memory
     }
 
-    applyConfigFile();
+    if (!applyConfigFile()) {
+        Serial.println("Settings from config file could not be applied. Setting defaults...");
+        scanInterval = 1;
+        depthOffset = 15;
+        depthSamplingCount = 10;
+    }
     
     // TEMP Remove this to save memory
     if (serialDebug) {
@@ -57,11 +89,48 @@ void setup() {
 }
 
 void loop() {
+    if ((millis() - oldFlowRateMeasureTime) > 1000) {
+        // Disable the interrupt while calculating flow rate and sending the value to the host
+        detachInterrupt(sensorInterrupt);
+            
+        // Because this loop may not complete in exactly 1 second intervals we calculate
+        // the number of milliseconds that have passed since the last execution and use
+        // that to scale the output. We also apply the calibrationFactor to scale the output
+        // based on the number of pulses per second per units of measure (litres/minute in
+        // this case) coming from the sensor.
+        flowRate = ((1000.0 / (millis() - oldFlowRateMeasureTime)) * pulseCount) / calibrationFactor;
+        
+        // Note the time this processing pass was executed. Note that because we've
+        // disabled interrupts the millis() function won't actually be incrementing right
+        // at this point, but it will still return the value it was set to just before
+        // interrupts went away.
+        oldFlowRateMeasureTime = millis();
+        
+        // Divide the flow rate in litres/minute by 60 to determine how many litres have
+        // passed through the sensor in this 1 second interval, then multiply by 1000 to
+        // convert to millilitres.
+        flowMilliLitres = (flowRate / 60) * 1000;
+        
+        // Print the flow rate for this second in litres / minute
+        Serial.print("Flow rate: ");
+        Serial.print(int(flowRate));  // Print the integer part of the variable
+        Serial.println("L/min");
+        
+        // Reset the pulse counter so we can start incrementing again
+        pulseCount = 0;
+        
+        // Enable the interrupt again now that we've finished sending output
+        attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+    }
+
     DateTime now = RTC.now();
     if ((now.unixtime() - lastScan) >= scanInterval) {
-        scan();
+        recordData();
     }
 }
+
+// TODO Make a method that will record the time of the last reading to a cache file of some sorts, so that in the event of a power outage, the device will remember when the last reading happened and start a scan in case the scan interval time has elapsed
+// TODO Implement the GSM Module
 
 long microsecondsToCentimeters(long microseconds) {
    return microseconds / 29 / 2;
@@ -136,11 +205,7 @@ long checkDepth() {
         }
     }
 
-    return (depthOffset - returnValue);
-}
-
-double checkFlowRate() {
-    return 0;
+    return returnValue;
 }
 
 boolean writeToFile(String data, String file) {
@@ -191,7 +256,7 @@ boolean applyConfigFile() {
 
                 // if read byte is a separator or a line break, parse the current contents of tempRead into an integer
                 // and set it to the currently selected setting
-                if (readByte == 126 || readByte == 10) {
+                if (readByte == 47 || readByte == 10) {
                     switch (settingID) {
                         case 0:
                             scanInterval = tempRead.toInt();
@@ -215,7 +280,7 @@ boolean applyConfigFile() {
                     tempRead = "";
                     settingID++;
                 }
-                else if (readByte != 10) {
+                else {
                     tempRead += (char)readByte;
                 }
             }
@@ -233,29 +298,84 @@ boolean applyConfigFile() {
     return false;
 }
 
-int scan() {
-    // DATA.LOG Entry format
-    // Time Start / Time End / Flow Rate / Depth / Offset
+uint32_t getLastScanTimeFromCache() {
+    uint32_t returnValue = 0;
 
-    String logEntry = "";
+    if (sdModuleInitialized) {
+        openFile = SD.open(cacheFile); // Opens the cache file
+        if (openFile) {
+            String tempRead = "";
+            while (openFile.available()) {
+                byte readByte = openFile.read();
+                if (readByte == 47 || readByte == 10) {
+                    returnValue = tempRead.toInt();
+                }
+                else {
+                    tempRead = (char)readByte;
+                }
+            }
+            openFile.close();
+        }
+        else if (!openFile && serialDebug) {
+            // TEMP serialDebug Get rid of this to save memory
+            Serial.println("Could not open cache file");
+        }
+    }
+
+    return returnValue;
+}
+
+int recordData() {
     DateTime now = RTC.now();
     uint32_t scanStart = now.unixtime();
-    logEntry += scanStart;
-    logEntry += char(126);
-
-    double flowRate = checkFlowRate();
     long depth = checkDepth();
-
     now = RTC.now();
     lastScan = now.unixtime();
-    logEntry += lastScan;
-    logEntry += char(126);
-    logEntry += flowRate;
-    logEntry += char(126);
-    logEntry += depth;
-    logEntry += char(126);
-    logEntry += depthOffset;
-    logEntry += char(126);
-    
+
+    // DATA.LOG Entries will first be collected and formatted into String logEntry.
+    // The format will be the following with '~' as a column separator:
+    // Time Start / Time End / Flow Rate / Flow Amount / Depth / Depth Offset
+    String logEntry = "";
+    boolean validData = false;
+
+    while (!validData)
+    {
+        logEntry += scanStart;
+        logEntry += char(47);
+        logEntry += lastScan;
+        logEntry += char(47);
+        logEntry += flowRate;
+        logEntry += char(47);
+        logEntry += flowMilliLitres;
+        logEntry += char(47);
+        logEntry += depth;
+        logEntry += char(47);
+        logEntry += depthOffset;
+
+        if (verifyDataIntegrity(logEntry)) {
+            validData = true;
+        }
+        else {
+            Serial.println("Data integrity compromised. Retrying...");
+            logEntry = "";
+        }
+    }
     writeToFile(logEntry, logFile);
+}
+
+// Interrupt Service Routine
+void pulseCounter() {
+  // Increment the pulse counter
+  pulseCount++;
+}
+
+boolean verifyDataIntegrity(String input) {
+    for (int x = 0; x < input.length(); x++) {
+        byte readByte = input.charAt(x);
+        if (readByte < 45 || readByte > 57) {
+            return false;
+        }
+    }
+
+    return true;
 }
