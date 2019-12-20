@@ -379,3 +379,21 @@ boolean verifyDataIntegrity(String input) {
 
     return true;
 }
+
+// TODO Document and optimize this if possible
+void uploadData() {
+    openFile = SD.open("DATA.LOG");
+    if (openFile) {
+        byte currentByte;
+        byte lastByte = 10;
+        while(openFile.available()) {
+            currentByte = openFile.read();
+
+            if (lastByte == 10) {
+                Serial.write(2);
+            }
+
+            lastByte = currentByte;
+        }
+    }
+}
