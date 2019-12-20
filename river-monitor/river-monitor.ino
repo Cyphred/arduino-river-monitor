@@ -381,6 +381,8 @@ boolean verifyDataIntegrity(String input) {
 }
 
 // TODO Document and optimize this if possible
+// TODO create a log size query
+// Starts a data upload stream
 void uploadData() {
     openFile = SD.open("DATA.LOG");
     if (openFile) {
@@ -395,5 +397,25 @@ void uploadData() {
 
             lastByte = currentByte;
         }
+        openFile.close();
     }
+}
+
+// Queries and sends the size of the log file over serial
+void getLogSize() {
+    int lines = 0;
+    openFile = SD.open("DATA.LOG");
+    if (openFile) {
+        while(openFile.available()) {
+            byte currentByte = openFile.read();
+            if (currentByte == 10) {
+                lines++;
+            }
+        }
+        openFile.close();
+    }
+    
+    Serial.write(2);
+    Serial.print(lines);
+    Serial.write(3);
 }
