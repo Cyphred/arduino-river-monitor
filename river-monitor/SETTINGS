@@ -1,0 +1,8 @@
+# Arduino River Monitor Configuration File
+# all lines beginning with a '#' will be ignored
+# Author: Jeremy Andrews I. Zantua
+scanInterval=5
+depthOffset=14
+depthSamplingRate=50
+alertRecipientsCount=2
+alertRecipients=+639772783843,+639472984223
