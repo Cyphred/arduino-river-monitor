@@ -23,24 +23,24 @@ uint32_t lastScan = 0;
 
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
-boolean sdModuleInitialized;
 File openFile;
-String logFile = "DATA";
-String cacheFile = "CACHE";
-String configFile = "SETTINGS";
-// Variables to be set by config file to be read from the SD Card
-int scanInterval;       // [SETTING_ID 0] Time in between scans in seconds
-long depthOffset;       // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
-int depthSamplingCount; // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
+String logFile = "DATA.LOG";
+String cacheFile = "CACHE.FILE";
+String configFile = "SETTINGS.CFG";
 
-// GSM Module
-String alertRecipients;
-int alertRecipientsCount;
+// Variables to be set by config file to be read from the SD Card
+int scanInterval;         // [SETTING_ID 1] Time in between scans in seconds
+long depthOffset;         // [SETTING_ID 2] CM distance of the ultrasonic sensor from the bottom of the body of water
+int depthSamplingCount;   // [SETTING_ID 3] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
+String alertRecipients;   // [SETTING_ID 4] The number of recipients for alerts and status updates
+int alertRecipientsCount; // [SETTING_ID 5] The mobile numbers of the recipients for alerts
 
 boolean serialDebug = true;
+boolean sdModuleInitialized;
+boolean configFileApplied;
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(2000000);
     Wire.begin();
 
     // Ultrasonic Sensor
@@ -66,13 +66,15 @@ void setup() {
     }
     else {
         sdModuleInitialized = true;
-        Serial.println("SD Initialized!!!"); // TEMP Remove this to save memory
+        Serial.println("SD Initialized"); // TEMP Remove this to save memory
 
-        if (!applyConfigFile()) {
-            Serial.println("Settings from config file could not be applied. Setting defaults...");
-            scanInterval = 1;
-            depthOffset = 15;
-            depthSamplingCount = 10;
+        if (applyConfigFile()) {
+            configFileApplied = true;
+            Serial.println("Settings applied");
+            getLogSize();
+        }
+        else {
+            Serial.println("Unable to apply settings");
         }
     }
 
