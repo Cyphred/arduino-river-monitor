@@ -488,6 +488,7 @@ void pulseCounter() {
   pulseCount++;
 }
 
+// Verifies log entries to ensure that only legal characters are used before writing to log file
 boolean verifyDataIntegrity(String input) {
     for (int x = 0; x < input.length(); x++) {
         byte readByte = input.charAt(x);
@@ -503,7 +504,7 @@ boolean verifyDataIntegrity(String input) {
 // TODO create a log size query
 // Starts a data upload stream
 void uploadData() {
-    openFile = SD.open("DATA.LOG");
+    openFile = SD.open(logFile);
     if (openFile) {
         byte currentByte;
         byte lastByte = 10;
@@ -523,7 +524,7 @@ void uploadData() {
 // Queries and sends the size of the log file over serial
 void getLogSize() {
     int lines = 0;
-    openFile = SD.open("DATA.LOG");
+    openFile = SD.open(logFile);
     if (openFile) {
         while(openFile.available()) {
             byte currentByte = openFile.read();
