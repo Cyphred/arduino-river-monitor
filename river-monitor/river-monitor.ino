@@ -24,9 +24,12 @@ uint32_t lastScan = 0;
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
 File openFile;
-String logFile = "DATA.LOG";
+String dataLog = "DATA.LOG";
 String cacheFile = "CACHE.FILE";
 String configFile = "SETTINGS.CFG";
+String activityLog = "ACTIVITY.LOG";
+String logCountFile = "LOGCOUNT.FILE";
+String smsLog = "SMS.LOG";
 
 // Variables to be set by config file to be read from the SD Card
 int scanInterval;         // [SETTING_ID 1] Time in between scans in seconds
@@ -481,7 +484,7 @@ int recordData() {
             logEntry = "";
         }
     }
-    writeToFile(logEntry, logFile);
+    writeToFile(logEntry, dataLog);
 }
 
 // Interrupt Service Routine
@@ -506,7 +509,7 @@ boolean verifyDataIntegrity(String input) {
 // TODO create a log size query
 // Starts a data upload stream
 void uploadData() {
-    openFile = SD.open(logFile);
+    openFile = SD.open(dataLog);
     if (openFile) {
         byte currentByte;
         byte lastByte = 10;
@@ -526,7 +529,7 @@ void uploadData() {
 // Queries and sends the size of the log file over serial
 void getLogSize() {
     int lines = 0;
-    openFile = SD.open(logFile);
+    openFile = SD.open(dataLog);
     if (openFile) {
         while(openFile.available()) {
             byte currentByte = openFile.read();
