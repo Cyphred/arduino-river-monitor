@@ -33,10 +33,14 @@ int scanInterval;       // [SETTING_ID 0] Time in between scans in seconds
 long depthOffset;       // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
 int depthSamplingCount; // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
 
+// GSM Module
+String alertRecipients;
+int alertRecipientsCount;
+
 boolean serialDebug = true;
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
     Wire.begin();
 
     // Ultrasonic Sensor
@@ -62,15 +66,17 @@ void setup() {
     }
     else {
         sdModuleInitialized = true;
-        Serial.println("SD Initialized"); // TEMP Remove this to save memory
+        Serial.println("SD Initialized!!!"); // TEMP Remove this to save memory
+
+        if (!applyConfigFile()) {
+            Serial.println("Settings from config file could not be applied. Setting defaults...");
+            scanInterval = 1;
+            depthOffset = 15;
+            depthSamplingCount = 10;
+        }
     }
 
-    if (!applyConfigFile()) {
-        Serial.println("Settings from config file could not be applied. Setting defaults...");
-        scanInterval = 1;
-        depthOffset = 15;
-        depthSamplingCount = 10;
-    }
+    
     
     // TEMP Remove this to save memory
     if (serialDebug) {
@@ -88,6 +94,11 @@ void setup() {
     }
 }
 
+void loop() {
+
+}
+
+/*
 void loop() {
     if ((millis() - oldFlowRateMeasureTime) > 1000) {
         // Disable the interrupt while calculating flow rate and sending the value to the host
@@ -128,6 +139,7 @@ void loop() {
         recordData();
     }
 }
+*/
 
 // TODO Make a method that will record the time of the last reading to a cache file of some sorts, so that in the event of a power outage, the device will remember when the last reading happened and start a scan in case the scan interval time has elapsed
 // TODO Implement the GSM Module
@@ -242,59 +254,166 @@ boolean writeToFile(String data, String file) {
     return writeSuccess;
 }
 
-// Reads settings from the config file and applies them
 boolean applyConfigFile() {
-    int appliedSettings = 0; // Keeps track of the number of settings applied. Each setting has a corresponding code.
+    boolean applied_scanInterval = false;
+    boolean applied_depthOffset = false;
+    boolean applied_depthSamplingCount = false;
+    boolean applied_alertRecipientsCount = false;
+    boolean applied_alertRecipients = false;
 
-    if (sdModuleInitialized) {
-        openFile = SD.open(configFile); // Opens the config file
-        if (openFile) {
-            String tempRead = ""; // temporarily keeps track of the read characters from the config file
-            int settingID = 0; // keeps track of the code of the next setting to be updated
-            while (openFile.available()) {
-                byte readByte = openFile.read(); // store read byte
+    tempPrint("applyConfigFile","Opening config file...");
+    // Opens the configuration file
+    openFile = SD.open(configFile);
+    // if the file is successfully opened
+    if (openFile) {
+        tempPrint("applyConfigFile","Config file opened!");
+        byte currentRead; // Stores the currently-read byte
+        byte lastRead; // Stores the last read byte prior to currentRead
+        boolean ignore = false; // true if the current line is a comment, becomes false after a line feed
+        String currentBuild = ""; // The current collection of characters until an end character is found, then it gets cleared
+        int currentID = 0; // The ID of the current setting being applied
+        
+        // Keeps track if in the middle of a String building process.
+        int ongoingBuild = 0;
+        // 0 - None
+        // 1 - Setting ID
+        // 2 - Setting value
 
-                // if read byte is a separator or a line break, parse the current contents of tempRead into an integer
-                // and set it to the currently selected setting
-                if (readByte == 47 || readByte == 10) {
-                    switch (settingID) {
-                        case 0:
-                            scanInterval = tempRead.toInt();
-                            appliedSettings++;
-                            break;
+        tempPrint("applyConfigFile","Starting to read file");
 
-                        case 1:
-                            depthOffset = tempRead.toInt();
-                            appliedSettings++;
-                            break;
-
-                        case 2:
-                            depthSamplingCount = tempRead.toInt();
-                            appliedSettings++;
-                            break;
-                        
-                        default:
-                            break;
-                    }
-
-                    tempRead = "";
-                    settingID++;
+        // while there is available data in the file
+        while(openFile.available()) {
+            currentRead = openFile.read(); // read the current byte from the file
+            
+            // if current line is not being ignored
+            if (!ignore) {
+                // if the current byte is a comment marker '#'
+                if (currentRead == 35) {
+                    ignore = true;
                 }
+                // if the current byte is not a comment marker '#'
                 else {
-                    tempRead += (char)readByte;
+                    // if no String build is ongoing and the last read character is a line feed
+                    if (ongoingBuild == 0) {
+                        // if the last read byte is a line feed
+                        if (lastRead == 10) {
+                            ongoingBuild = 1; // set ongoing build status to '1' for setting ID
+                            currentBuild += (char)lastRead; // add the current byte to the String build
+                        }
+                    }
+                    // if a setting ID build is ongoing
+                    else if (ongoingBuild == 1) {
+                        // if the current byte is an assignment operator '='
+                        if (currentRead == 61) {
+                            tempPrint("applyConfigFile",currentBuild);
+                            if (currentBuild.equals("scanInterval")) {
+                                currentID = 1;
+                                ongoingBuild++;
+                            }
+                            else if (currentBuild.equals("depthOffset")) {
+                                currentID = 2;
+                                ongoingBuild++;
+                            }
+                            else if (currentBuild.equals("depthSamplingCount")) {
+                                currentID = 3;
+                                ongoingBuild++;
+                            }
+                            else if (currentBuild.equals("alertRecipientsCount")) {
+                                currentID = 4;
+                                ongoingBuild++;
+                            }
+                            else if (currentBuild.equals("alertRecipients")) {
+                                currentID = 5;
+                                ongoingBuild++;
+                            }
+                            // if setting ID does not match any existing setting IDs, ignore the rest of the line
+                            else {
+                                ignore = true;
+                                break;
+                            }
+
+                            currentBuild = "";
+                        }
+                        // if the current byte is not an assignment operator '='
+                        else {
+                            currentBuild += (char)lastRead;
+                        }
+                    }
+                    // if the setting data build is ongoing
+                    else if (ongoingBuild == 2) {
+                        // if the current byte is a newline
+                        if (currentRead == 10) {
+                            // Test if the currently built value is a valid number
+                            if (validInt(currentBuild)) {
+                                tempPrint("applyConfigFile",currentBuild);
+                                int parsedValue = currentBuild.toInt(); // stores the converted setting value
+
+                                switch (currentID) {
+                                case 2:
+                                    scanInterval = parsedValue;
+                                    applied_scanInterval = true;
+                                    break;
+
+                                case 3:
+                                    depthOffset = parsedValue;
+                                    applied_depthOffset= true;
+                                    break;
+
+                                case 4:
+                                    depthSamplingCount = parsedValue;
+                                    applied_depthSamplingCount = true;
+                                    break;
+
+                                case 5:
+                                    alertRecipientsCount = parsedValue;
+                                    applied_alertRecipients = true;
+                                    break;
+                                
+                                default:
+                                    break;
+                                }
+
+                                ongoingBuild = 0;
+                                currentBuild = "";
+                                currentID = 0;
+                            }
+                            // if the currently built value is not a valid number
+                            else {
+                                tempPrint("applyConfigFile","invalid value",currentBuild);
+                                Serial.write(135); // Config value error
+                            }
+                        }
+                        else {
+                            currentBuild += (char)currentRead;
+                        }
+                    }
                 }
             }
-            openFile.close();
+            // if current line is being ignored
+            else {
+                if (currentRead == 10) {
+                    ignore = false;
+                }
+            }
+
+            lastRead = currentRead;
         }
-        else if (!openFile && serialDebug) {
-            // TEMP serialDebug Get rid of this to save memory
-            Serial.println("Could not open config file");
-        }
+    }
+    // if the file could not be opened
+    else {
+        tempPrint("applyConfigFile","Could not open config file");
+        //Serial.write(134); // Config file error // TODO UNCOMMENT THIS
+        // TODO handling for disabled state when a config file is not available
     }
 
-    if (appliedSettings == 3) {
+    if (applied_scanInterval
+    && applied_depthOffset
+    && applied_depthSamplingCount
+    && applied_alertRecipientsCount
+    && applied_alertRecipients) {
         return true;
     }
+
     return false;
 }
 
@@ -418,4 +537,32 @@ void getLogSize() {
     Serial.write(2);
     Serial.print(lines);
     Serial.write(3);
+}
+
+// Checks if the current String is a valid candidate for conversion into int
+boolean validInt(String input) {
+    for (int x = 0; x < input.length(); x++) {
+        if (!isDigit(input.charAt(x))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// TEMP This whole method and all its usages are temporary
+void tempPrint(String method, String message) {
+    Serial.print("[");
+    Serial.print(method);
+    Serial.print("] ");
+    Serial.println(message);
+}
+
+// TEMP This whole method and all its usages are temporary
+void tempPrint(String method, String message, String value) {
+    Serial.print("[");
+    Serial.print(method);
+    Serial.print("] ");
+    Serial.print(message);
+    Serial.print(", value: ");
+    Serial.println(value);
 }
