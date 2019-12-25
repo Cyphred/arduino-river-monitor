@@ -261,12 +261,10 @@ boolean applyConfigFile() {
     boolean applied_alertRecipientsCount = false;
     boolean applied_alertRecipients = false;
 
-    tempPrint("applyConfigFile","Opening config file...");
     // Opens the configuration file
     openFile = SD.open(configFile);
     // if the file is successfully opened
     if (openFile) {
-        tempPrint("applyConfigFile","Config file opened!");
         byte currentRead; // Stores the currently-read byte
         byte lastRead; // Stores the last read byte prior to currentRead
         boolean ignore = false; // true if the current line is a comment, becomes false after a line feed
@@ -278,8 +276,6 @@ boolean applyConfigFile() {
         // 0 - None
         // 1 - Setting ID
         // 2 - Setting value
-
-        tempPrint("applyConfigFile","Starting to read file");
 
         // while there is available data in the file
         while(openFile.available()) {
@@ -293,36 +289,40 @@ boolean applyConfigFile() {
                 }
                 // if the current byte is not a comment marker '#'
                 else {
-                    // if no String build is ongoing and the last read character is a line feed
+                    // if no String build is ongoing
                     if (ongoingBuild == 0) {
                         // if the last read byte is a line feed
                         if (lastRead == 10) {
                             ongoingBuild = 1; // set ongoing build status to '1' for setting ID
-                            currentBuild += (char)lastRead; // add the current byte to the String build
+                            currentBuild += (char)currentRead; // add the current byte to the String build
                         }
                     }
                     // if a setting ID build is ongoing
                     else if (ongoingBuild == 1) {
                         // if the current byte is an assignment operator '='
                         if (currentRead == 61) {
-                            tempPrint("applyConfigFile",currentBuild);
                             if (currentBuild.equals("scanInterval")) {
+                                delay(100);
                                 currentID = 1;
                                 ongoingBuild++;
                             }
                             else if (currentBuild.equals("depthOffset")) {
+                                delay(100);
                                 currentID = 2;
                                 ongoingBuild++;
                             }
                             else if (currentBuild.equals("depthSamplingCount")) {
+                                delay(100);
                                 currentID = 3;
                                 ongoingBuild++;
                             }
                             else if (currentBuild.equals("alertRecipientsCount")) {
+                                delay(100);
                                 currentID = 4;
                                 ongoingBuild++;
                             }
                             else if (currentBuild.equals("alertRecipients")) {
+                                delay(100);
                                 currentID = 5;
                                 ongoingBuild++;
                             }
@@ -331,42 +331,46 @@ boolean applyConfigFile() {
                                 ignore = true;
                                 break;
                             }
-
                             currentBuild = "";
                         }
                         // if the current byte is not an assignment operator '='
                         else {
-                            currentBuild += (char)lastRead;
+                            currentBuild += (char)currentRead;
                         }
                     }
                     // if the setting data build is ongoing
                     else if (ongoingBuild == 2) {
                         // if the current byte is a newline
                         if (currentRead == 10) {
-                            // Test if the currently built value is a valid number
-                            if (validInt(currentBuild)) {
-                                tempPrint("applyConfigFile",currentBuild);
+                            // if the current setting is the alert recipients
+                            if (currentID == 5) {
+                                alertRecipients = currentBuild;
+                                applied_alertRecipients = true;
+                            }
+                            // if the current setting is not the alert recipients,
+                            // test if the currently built value is a valid number
+                            else if (validInt(currentBuild)) {
                                 int parsedValue = currentBuild.toInt(); // stores the converted setting value
 
                                 switch (currentID) {
-                                case 2:
+                                case 1:
                                     scanInterval = parsedValue;
                                     applied_scanInterval = true;
                                     break;
 
-                                case 3:
+                                case 2:
                                     depthOffset = parsedValue;
                                     applied_depthOffset= true;
                                     break;
 
-                                case 4:
+                                case 3:
                                     depthSamplingCount = parsedValue;
                                     applied_depthSamplingCount = true;
                                     break;
 
-                                case 5:
+                                case 4:
                                     alertRecipientsCount = parsedValue;
-                                    applied_alertRecipients = true;
+                                    applied_alertRecipientsCount = true;
                                     break;
                                 
                                 default:
@@ -379,7 +383,8 @@ boolean applyConfigFile() {
                             }
                             // if the currently built value is not a valid number
                             else {
-                                tempPrint("applyConfigFile","invalid value",currentBuild);
+                                Serial.print(currentID);
+                                Serial.println(" invalid value !!!!!!!!!!!!!!!!!!!!!");
                                 Serial.write(135); // Config value error
                             }
                         }
@@ -401,16 +406,11 @@ boolean applyConfigFile() {
     }
     // if the file could not be opened
     else {
-        tempPrint("applyConfigFile","Could not open config file");
-        //Serial.write(134); // Config file error // TODO UNCOMMENT THIS
+        Serial.write(134); // Config file error
         // TODO handling for disabled state when a config file is not available
     }
 
-    if (applied_scanInterval
-    && applied_depthOffset
-    && applied_depthSamplingCount
-    && applied_alertRecipientsCount
-    && applied_alertRecipients) {
+    if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipientsCount&& applied_alertRecipients) {
         return true;
     }
 
@@ -547,22 +547,4 @@ boolean validInt(String input) {
         }
     }
     return true;
-}
-
-// TEMP This whole method and all its usages are temporary
-void tempPrint(String method, String message) {
-    Serial.print("[");
-    Serial.print(method);
-    Serial.print("] ");
-    Serial.println(message);
-}
-
-// TEMP This whole method and all its usages are temporary
-void tempPrint(String method, String message, String value) {
-    Serial.print("[");
-    Serial.print(method);
-    Serial.print("] ");
-    Serial.print(message);
-    Serial.print(", value: ");
-    Serial.println(value);
 }
