@@ -21,8 +21,9 @@ RTClib RTC;
 uint32_t lastScan = 0;
 
 // Indicator LEDs
-int ledRed = A1;
-int ledYellow = A0;
+int ledActivity = A2;
+int ledError = A1;
+int ledConnected = A0;
 
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
@@ -59,9 +60,10 @@ void setup() {
     Wire.begin();
 
     // Initialization for status LEDs
-    pinMode(ledRed,OUTPUT);
-    pinMode(ledYellow,OUTPUT);
-    digitalWrite(ledRed,HIGH); // Turn on to signify initialization, then turn it off if initialization is successful
+    pinMode(ledActivity,OUTPUT);
+    pinMode(ledError,OUTPUT);
+    pinMode(ledConnected,OUTPUT);
+    digitalWrite(ledError,HIGH); // Turn on to signify initialization, then turn it off if initialization is successful
 
     // wait 3 seconds for signal from app
     // TODO test if you can reduce this waiting time to make startup feel snappier
@@ -71,7 +73,7 @@ void setup() {
             if (Serial.read() == 129) {
                 connectedToApp = true;
                 Serial.write(128); // Tells the app that the connection is established
-                digitalWrite(ledYellow,HIGH);
+                digitalWrite(ledConnected,HIGH);
             }
         }
     }
@@ -105,7 +107,7 @@ void setup() {
     //connectedToApp = true; // TEMP Remove this later, this is only for testing with the app itself
 
     if (sdCardReady && configFileApplied) {
-        digitalWrite(ledRed,LOW);
+        digitalWrite(ledError,LOW);
     }
 }
 
