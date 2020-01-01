@@ -35,6 +35,7 @@ String configFile = "SETTINGS.CFG";
 String activityLog = "ACTIVITY.LOG";
 String logCountFile = "LOGCOUNT.FILE";
 String smsLog = "SMS.LOG";
+int failedWrites = 0;
 
 // Variables to be set by config file to be read from the SD Card
 int scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
@@ -178,11 +179,14 @@ void loop() {
 
         DateTime now = RTC.now();
         if ((now.unixtime() - lastScan) >= scanInterval) {
-            blinkActivityLED();
-            recordData();
+            if (!recordData()) {
+                suspendOperations();
+            }
             lastScan = now.unixtime();
-            blinkActivityLED();
         }
+    }
+    else {
+        debugln("Nothing happens now...");
     }
 }
 
@@ -374,7 +378,7 @@ uint32_t getLastScanTimeFromCache() {
     return returnValue;
 }
 
-void recordData() {
+boolean recordData() {
     DateTime now = RTC.now();
     uint32_t scanStart = now.unixtime();
     long depth = checkDepth();
@@ -399,14 +403,19 @@ void recordData() {
     debug(logEntry);
     debug(" to file... ");
 
-    if (writeToFile(logEntry, dataLog)) {
-        // TODO Add write success
-        debugln("Success!");
+    for (int x = 0; x < 5; x++) {
+        if (writeToFile(logEntry, dataLog)) {
+            // TODO Add write success
+            debugln("Success!");
+            return true;
+        }
+        else {
+            // TODO Add write failure
+            debugln("Failed!");
+        }
     }
-    else {
-        // TODO Add write failure
-        debugln("Failed!");
-    }
+
+    return false;
 }
 
 // Interrupt Service Routine
@@ -505,4 +514,13 @@ void blinkActivityLED() {
         activityLEDState = 0;
         digitalWrite(ledActivity,LOW);
     }
+}
+
+void suspendOperations() {
+    // TODO Error code for write failure
+    // TODO Alert recipient of write errors and suspend current operations
+    digitalWrite(ledError,HIGH);
+    digitalWrite(ledActivity,LOW);
+    debugln("Operations Suspended");
+    sdCardReady = false;
 }
