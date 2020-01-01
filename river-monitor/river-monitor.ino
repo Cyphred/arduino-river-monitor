@@ -21,9 +21,8 @@ RTClib RTC;
 uint32_t lastScan = 0;
 
 // Indicator LEDs
-int ledRed = A2;
-int ledYellow = A1;
-int ledGreen = A0;
+int ledRed = A1;
+int ledYellow = A0;
 
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
@@ -59,19 +58,9 @@ void setup() {
     Serial.begin(2000000);
     Wire.begin();
 
+    // Initialization for status LEDs
     pinMode(ledRed,OUTPUT);
     pinMode(ledYellow,OUTPUT);
-    pinMode(ledGreen,OUTPUT);
-
-    digitalWrite(ledRed,LOW);
-    digitalWrite(ledYellow,LOW);
-    digitalWrite(ledGreen,LOW);
-
-    digitalWrite(ledRed,HIGH);
-    delay(1000);
-    digitalWrite(ledYellow,HIGH);
-    delay(1000);
-    digitalWrite(ledGreen,HIGH);
 
     // wait 3 seconds for signal from app
     // TODO test if you can reduce this waiting time to make startup feel snappier
