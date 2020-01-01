@@ -38,7 +38,8 @@ String smsLog = "SMS.LOG";
 int scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
 long depthOffset;         // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
 int depthSamplingCount;   // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
-int alertRecipient;   // [SETTING_ID 3] The number of recipients for alerts and status updates
+unsigned long alertRecipient_a;   // [SETTING_ID 3] The number of recipients for alerts and status updates
+unsigned long alertRecipient_b;   // [SETTING_ID 4] The number of recipients for alerts and status updates
 
 boolean serialDebug = true;
 boolean sdCardReady = false;
@@ -65,11 +66,12 @@ void setup() {
     // wait 3 seconds for signal from app
     // TODO test if you can reduce this waiting time to make startup feel snappier
     timeoutStart = millis();
-    Serial.write(128); // Sends a connection request to tell app that the device is ready for a connection
     while ((millis() - timeoutStart) < 3000) {
         if (Serial.available()) {
             if (Serial.read() == 129) {
                 connectedToApp = true;
+                Serial.write(128); // Tells the app that the connection is established
+                digitalWrite(ledYellow,HIGH);
             }
         }
     }
@@ -256,25 +258,13 @@ long checkDepth() {
 }
 
 boolean writeToFile(String data, String file) {
-    debug("Writing to file...");
     if (sdCardReady) {
         openFile = SD.open(file, FILE_WRITE);
         if (openFile) {
-            debug("File opened. Writing ");
-            debugln(data);
-
             openFile.println(data);
-            debug("Done writing. Closing file...");
             openFile.close();
-            debugln("Done!");
             return true;
         }
-        else {
-            debugln("Can't open file");
-        }
-    }
-    else {
-        debugln("SD is not ready!");
     }
     
     return false;
@@ -290,7 +280,8 @@ boolean applyConfigFile() {
     boolean applied_scanInterval = false;
     boolean applied_depthOffset = false;
     boolean applied_depthSamplingCount = false;
-    boolean applied_alertRecipient = false;
+    boolean applied_alertRecipient_a = false;
+    boolean applied_alertRecipient_b = false;
 
     // Opens the configuration file
     openFile = SD.open(configFile);
@@ -299,7 +290,7 @@ boolean applyConfigFile() {
     if (openFile) {
         byte currentRead; // Stores the currently-read currentByte
         int currentID = 0; // The ID of the current setting being applied
-        int currentValue = 0; // Stores the current value being read
+        unsigned long currentValue = 0; // Stores the current value being read
 
         // While the config file has available data for reading
         while (openFile.available()) {
@@ -320,8 +311,12 @@ boolean applyConfigFile() {
                         applied_depthSamplingCount = true;
                         break;
                     case 3:
-                        alertRecipient = currentValue;
-                        applied_alertRecipient = true;
+                        alertRecipient_a = currentValue;
+                        applied_alertRecipient_a = true;
+                        break;
+                    case 4:
+                        alertRecipient_b = currentValue;
+                        applied_alertRecipient_b = true;
                         break;
                 }
 
@@ -329,12 +324,12 @@ boolean applyConfigFile() {
                 currentID++; // Increments the currentID to apply the next setting
             }
             // If the current read byte is a digit
-            else if (readByte > 47 && readByte < 58) {
-                currentValue = (currentValue * 10) + (int)currentRead;
+            else if (currentRead > 47 && currentRead < 58) {
+                currentValue = (currentValue * 10) + ((char)currentRead - '0');
             }
         }
 
-        if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient) {
+        if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient_a && applied_alertRecipient_b) {
             return true;
         }
         else {
@@ -382,8 +377,6 @@ int recordData() {
     String logEntry = "";
     boolean validData = false;
 
-    debugln("Recording data...");
-
     while (!validData)
     {
         logEntry += scanStart;
@@ -408,9 +401,6 @@ int recordData() {
         */
     }
     writeToFile(logEntry, dataLog);
-
-    
-    debugln("Done!");
 }
 
 // Interrupt Service Routine
@@ -436,7 +426,6 @@ void uploadData() {
 
 // Queries and sends the size of the log file over serial
 void getLogSize() {
-    debug("counting lines...");
     int lines = 0;
     openFile = SD.open(dataLog);
     if (openFile) {
@@ -448,10 +437,6 @@ void getLogSize() {
         }
         openFile.close();
     }
-    else {
-        debug("cant open file ");
-    }
-    debug("done! ");
     
     Serial.write(2);
     Serial.print(lines);
