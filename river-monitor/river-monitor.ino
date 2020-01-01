@@ -35,11 +35,10 @@ String logCountFile = "LOGCOUNT.FILE";
 String smsLog = "SMS.LOG";
 
 // Variables to be set by config file to be read from the SD Card
-int scanInterval;         // [SETTING_ID 1] Time in between scans in seconds
-long depthOffset;         // [SETTING_ID 2] CM distance of the ultrasonic sensor from the bottom of the body of water
-int depthSamplingCount;   // [SETTING_ID 3] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
-String alertRecipients;   // [SETTING_ID 4] The number of recipients for alerts and status updates
-int alertRecipientsCount; // [SETTING_ID 5] The mobile numbers of the recipients for alerts
+int scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
+long depthOffset;         // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
+int depthSamplingCount;   // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
+int alertRecipient;   // [SETTING_ID 3] The number of recipients for alerts and status updates
 
 boolean serialDebug = true;
 boolean sdCardReady = false;
@@ -61,6 +60,7 @@ void setup() {
     // Initialization for status LEDs
     pinMode(ledRed,OUTPUT);
     pinMode(ledYellow,OUTPUT);
+    digitalWrite(ledRed,HIGH); // Turn on to signify initialization, then turn it off if initialization is successful
 
     // wait 3 seconds for signal from app
     // TODO test if you can reduce this waiting time to make startup feel snappier
@@ -92,18 +92,19 @@ void setup() {
     // Initializes and checks if the SD is ready for use
     if (!SD.begin(sdPin)) {
         sdCardReady = false;
-        debugln("SD not ready");
     }
     else {
         sdCardReady = true;
-        debugln("SD ready");
         if (applyConfigFile()) {
             configFileApplied = true;
-            debugln("Config applied");
         }
     }
 
     //connectedToApp = true; // TEMP Remove this later, this is only for testing with the app itself
+
+    if (sdCardReady && configFileApplied) {
+        digitalWrite(ledRed,LOW);
+    }
 }
 
 void loop() {
@@ -280,172 +281,68 @@ boolean writeToFile(String data, String file) {
 }
 
 boolean applyConfigFile() {
+    /*
+    * The config file is now formatted as a single line with each value separated with a slash (character decimal 47)
+    * and are laid out in the following order:
+    * Scan Interval / Depth Offset / Depth Sampling Count / Alert phone numbers
+    */
 
-}
-
-boolean old_applyConfigFile() {
     boolean applied_scanInterval = false;
     boolean applied_depthOffset = false;
     boolean applied_depthSamplingCount = false;
-    boolean applied_alertRecipientsCount = false;
-    boolean applied_alertRecipients = false;
+    boolean applied_alertRecipient = false;
 
     // Opens the configuration file
     openFile = SD.open(configFile);
-    // if the file is successfully opened
+
+    // If the config file is successfully opened
     if (openFile) {
-        byte currentRead; // Stores the currently-read byte
-        byte lastRead; // Stores the last read byte prior to currentRead
-        boolean ignore = false; // true if the current line is a comment, becomes false after a line feed
-        String currentBuild = ""; // The current collection of characters until an end character is found, then it gets cleared
+        byte currentRead; // Stores the currently-read currentByte
         int currentID = 0; // The ID of the current setting being applied
-        
-        // Keeps track if in the middle of a String building process.
-        int ongoingBuild = 0;
-        // 0 - None
-        // 1 - Setting ID
-        // 2 - Setting value
+        int currentValue = 0; // Stores the current value being read
 
-        // while there is available data in the file
-        while(openFile.available()) {
-            currentRead = openFile.read(); // read the current byte from the file
-            
-            // if current line is not being ignored
-            if (!ignore) {
-                // if the current byte is a comment marker '#'
-                if (currentRead == 35) {
-                    ignore = true;
+        // While the config file has available data for reading
+        while (openFile.available()) {
+            currentRead = openFile.read();
+            // If the current read byte is a separator ('/' or decimal 47)
+            if (currentRead == 47) {
+                switch (currentID) {
+                    case 0:
+                        scanInterval = currentValue;
+                        applied_scanInterval = true;
+                        break;
+                    case 1:
+                        depthOffset = currentValue;
+                        applied_depthOffset = true;
+                        break;
+                    case 2:
+                        depthSamplingCount = currentValue;
+                        applied_depthSamplingCount = true;
+                        break;
+                    case 3:
+                        alertRecipient = currentValue;
+                        applied_alertRecipient = true;
+                        break;
                 }
-                // if the current byte is not a comment marker '#'
-                else {
-                    // if no String build is ongoing
-                    if (ongoingBuild == 0) {
-                        // if the last read byte is a line feed
-                        if (lastRead == 10) {
-                            ongoingBuild = 1; // set ongoing build status to '1' for setting ID
-                            currentBuild += (char)currentRead; // add the current byte to the String build
-                        }
-                    }
-                    // if a setting ID build is ongoing
-                    else if (ongoingBuild == 1) {
-                        // if the current byte is an assignment operator '='
-                        if (currentRead == 61) {
-                            if (currentBuild.equals("scanInterval")) {
-                                delay(100);
-                                currentID = 1;
-                                ongoingBuild++;
-                            }
-                            else if (currentBuild.equals("depthOffset")) {
-                                delay(100);
-                                currentID = 2;
-                                ongoingBuild++;
-                            }
-                            else if (currentBuild.equals("depthSamplingCount")) {
-                                delay(100);
-                                currentID = 3;
-                                ongoingBuild++;
-                            }
-                            else if (currentBuild.equals("alertRecipientsCount")) {
-                                delay(100);
-                                currentID = 4;
-                                ongoingBuild++;
-                            }
-                            else if (currentBuild.equals("alertRecipients")) {
-                                delay(100);
-                                currentID = 5;
-                                ongoingBuild++;
-                            }
-                            // if setting ID does not match any existing setting IDs, ignore the rest of the line
-                            else {
-                                ignore = true;
-                                break;
-                            }
-                            currentBuild = "";
-                        }
-                        // if the current byte is not an assignment operator '='
-                        else {
-                            currentBuild += (char)currentRead;
-                        }
-                    }
-                    // if the setting data build is ongoing
-                    else if (ongoingBuild == 2) {
-                        // if the current byte is a newline
-                        if (currentRead == 10) {
-                            // if the current setting is the alert recipients
-                            if (currentID == 5) {
-                                alertRecipients = currentBuild;
-                                applied_alertRecipients = true;
-                            }
-                            // if the current setting is not the alert recipients,
-                            // test if the currently built value is a valid number
-                            else if (validInt(currentBuild)) {
-                                int parsedValue = currentBuild.toInt(); // stores the converted setting value
 
-                                switch (currentID) {
-                                case 1:
-                                    scanInterval = parsedValue;
-                                    applied_scanInterval = true;
-                                    break;
-
-                                case 2:
-                                    depthOffset = parsedValue;
-                                    applied_depthOffset= true;
-                                    break;
-
-                                case 3:
-                                    depthSamplingCount = parsedValue;
-                                    applied_depthSamplingCount = true;
-                                    break;
-
-                                case 4:
-                                    alertRecipientsCount = parsedValue;
-                                    applied_alertRecipientsCount = true;
-                                    break;
-                                
-                                default:
-                                    break;
-                                }
-
-                                ongoingBuild = 0;
-                                currentBuild = "";
-                                currentID = 0;
-                            }
-                            // if the currently built value is not a valid number
-                            else {
-                                Serial.print(currentID);
-                                Serial.println(" invalid value !!!!!!!!!!!!!!!!!!!!!");
-                                Serial.write(135); // Config value error
-                            }
-                        }
-                        else {
-                            currentBuild += (char)currentRead;
-                        }
-                    }
-                }
+                currentValue = 0; // Resets the currently built value
+                currentID++; // Increments the currentID to apply the next setting
             }
-            // if current line is being ignored
-            else {
-                if (currentRead == 10) {
-                    ignore = false;
-                }
+            // If the current read byte is a digit
+            else if (readByte > 47 && readByte < 58) {
+                currentValue = (currentValue * 10) + (int)currentRead;
             }
-
-            lastRead = currentRead;
         }
 
-        debugln("Closing config file");
-        openFile.close();
-    }
-    // if the file could not be opened
-    else {
-        Serial.write(134); // Config file error
-        // TODO handling for disabled state when a config file is not available
-    }
-
-    if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipientsCount&& applied_alertRecipients) {
-        return true;
+        if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient) {
+            return true;
+        }
+        else {
+            return false;
+        }
     }
 
+    // If the config file can't be opened, return false
     return false;
 }
 
