@@ -55,7 +55,7 @@ String currentBuild;
 void setup() {
     // initialize Serial communicatioin at 2M baud rate to allow for faster data transfer rates,
     // mainly for large data sets consisting of tens of thousands of lines of data
-    Serial.begin(2000000);
+    Serial.begin(9600);
     Wire.begin();
 
     // Initialization for status LEDs
@@ -106,6 +106,11 @@ void setup() {
     //connectedToApp = true; // TEMP Remove this later, this is only for testing with the app itself
 }
 
+void loop() {
+
+}
+
+/*
 void loop() {
     // if the device is connected to the app
     if (connectedToApp) {
@@ -168,6 +173,7 @@ void loop() {
     }
     //debugln("End reached");
 }
+*/
 
 // TODO Make a method that will record the time of the last reading to a cache file of some sorts, so that in the event of a power outage, the device will remember when the last reading happened and start a scan in case the scan interval time has elapsed
 // TODO Implement the GSM Module
@@ -274,6 +280,10 @@ boolean writeToFile(String data, String file) {
 }
 
 boolean applyConfigFile() {
+
+}
+
+boolean old_applyConfigFile() {
     boolean applied_scanInterval = false;
     boolean applied_depthOffset = false;
     boolean applied_depthSamplingCount = false;
