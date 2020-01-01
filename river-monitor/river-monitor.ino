@@ -21,6 +21,7 @@ RTClib RTC;
 uint32_t lastScan = 0;
 
 // Indicator LEDs
+int activityLEDState = 0;
 int ledActivity = A2;
 int ledError = A1;
 int ledConnected = A0;
@@ -63,7 +64,11 @@ void setup() {
     pinMode(ledActivity,OUTPUT);
     pinMode(ledError,OUTPUT);
     pinMode(ledConnected,OUTPUT);
-    digitalWrite(ledError,HIGH); // Turn on to signify initialization, then turn it off if initialization is successful
+
+    // Turns on all status LEDs to signify initialization
+    digitalWrite(ledActivity,HIGH);
+    digitalWrite(ledError,HIGH);
+    digitalWrite(ledConnected,HIGH);
 
     // wait 3 seconds for signal from app
     // TODO test if you can reduce this waiting time to make startup feel snappier
@@ -104,18 +109,15 @@ void setup() {
         }
     }
 
-    //connectedToApp = true; // TEMP Remove this later, this is only for testing with the app itself
-
     if (sdCardReady && configFileApplied) {
         digitalWrite(ledError,LOW);
     }
+    if (!connectedToApp) {
+        digitalWrite(ledConnected,LOW);
+    }
+    digitalWrite(ledActivity,LOW);
 }
 
-void loop() {
-
-}
-
-/*
 void loop() {
     // if the device is connected to the app
     if (connectedToApp) {
@@ -141,8 +143,13 @@ void loop() {
     // - the device is not connected to the app
     // - the configuration file has been properly implemented
     else if (!connectedToApp && sdCardReady && configFileApplied) {
+        
+        // Measures the flow rate every second
         if ((millis() - oldFlowRateMeasureTime) > 1000) {
-            debug("Measuring flow... ");
+            // Blinks the activity LED during a scan
+            blinkActivityLED();
+            delay(100);
+
             // Disable the interrupt while calculating flow rate and sending the value to the host
             detachInterrupt(sensorInterrupt);
                 
@@ -159,26 +166,25 @@ void loop() {
             // interrupts went away.
             oldFlowRateMeasureTime = millis();
             
-            // Print the flow rate for this second in litres / minute
-            debug((String)int(flowRate));  // Print the integer part of the variable
-            debug(" L/min... ");
-            
             // Reset the pulse counter so we can start incrementing again
             pulseCount = 0;
             
             // Enable the interrupt again now that we've finished sending output
             attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
-            debugln("done!");
         }
+
+        // Makes sure the activity LED is not left on
+        blinkActivityLED();
 
         DateTime now = RTC.now();
         if ((now.unixtime() - lastScan) >= scanInterval) {
+            blinkActivityLED();
             recordData();
+            lastScan = now.unixtime();
+            blinkActivityLED();
         }
     }
-    //debugln("End reached");
 }
-*/
 
 // TODO Make a method that will record the time of the last reading to a cache file of some sorts, so that in the event of a power outage, the device will remember when the last reading happened and start a scan in case the scan interval time has elapsed
 // TODO Implement the GSM Module
@@ -267,8 +273,10 @@ boolean writeToFile(String data, String file) {
             openFile.close();
             return true;
         }
+        else {
+            return false;
+        }
     }
-    
     return false;
 }
 
@@ -366,7 +374,7 @@ uint32_t getLastScanTimeFromCache() {
     return returnValue;
 }
 
-int recordData() {
+void recordData() {
     DateTime now = RTC.now();
     uint32_t scanStart = now.unixtime();
     long depth = checkDepth();
@@ -374,35 +382,31 @@ int recordData() {
     lastScan = now.unixtime();
 
     // DATA.LOG Entries will first be collected and formatted into String logEntry.
-    // The format will be the following with '~' as a column separator:
-    // Time Start / Time End / Flow Rate / Flow Amount / Depth / Depth Offset
-    String logEntry = "";
+    // The format will be the following with '/' as a column separator:
+    // Time Start / Time End / Flow Rate / Depth
+    String logEntry;
     boolean validData = false;
 
-    while (!validData)
-    {
-        logEntry += scanStart;
-        logEntry += char(47);
-        logEntry += lastScan;
-        logEntry += char(47);
-        logEntry += flowRate;
-        logEntry += char(47);
-        logEntry += depth;
-        logEntry += char(47);
-        logEntry += depthOffset;
+    logEntry += scanStart;
+    logEntry += char(47);
+    logEntry += lastScan;
+    logEntry += char(47);
+    logEntry += flowRate;
+    logEntry += char(47);
+    logEntry += depth;
 
-        validData = true; // TODO Remove this override
-        /*
-        if (verifyDataIntegrity(logEntry)) {
-            validData = true;
-        }
-        else {
-            Serial.println("Data integrity compromised. Retrying...");
-            logEntry = "";
-        }
-        */
+    debug("Writing ");
+    debug(logEntry);
+    debug(" to file... ");
+
+    if (writeToFile(logEntry, dataLog)) {
+        // TODO Add write success
+        debugln("Success!");
     }
-    writeToFile(logEntry, dataLog);
+    else {
+        // TODO Add write failure
+        debugln("Failed!");
+    }
 }
 
 // Interrupt Service Routine
@@ -489,5 +493,16 @@ void debugln(String message) {
 void debug(String message) {
     if (serialDebug) {
         Serial.print(message);
+    }
+}
+
+void blinkActivityLED() {
+    if (activityLEDState == 0) {
+        activityLEDState = 1;
+        digitalWrite(ledActivity,HIGH);
+    }
+    else {
+        activityLEDState = 0;
+        digitalWrite(ledActivity,LOW);
     }
 }
