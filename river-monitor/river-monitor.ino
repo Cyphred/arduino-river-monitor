@@ -10,7 +10,6 @@ byte sensorPin       = 2;
 float calibrationFactor = 4.5;
 volatile byte pulseCount = 0;  
 float flowRate;
-unsigned int flowMilliLitres;
 unsigned long oldFlowRateMeasureTime;
 
 // Ultrasonic Sensor
@@ -21,10 +20,15 @@ const int echoPin = 5;  // Echo Pin of Ultrasonic Sensor
 RTClib RTC;
 uint32_t lastScan = 0;
 
+// Indicator LEDs
+int ledRed = A2;
+int ledYellow = A1;
+int ledGreen = A0;
+
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
 File openFile;
-String dataLog = "DATA.LOG";
+String dataLog = "NEWDATA.LOG";
 String cacheFile = "CACHE.FILE";
 String configFile = "SETTINGS.CFG";
 String activityLog = "ACTIVITY.LOG";
@@ -39,12 +43,47 @@ String alertRecipients;   // [SETTING_ID 4] The number of recipients for alerts 
 int alertRecipientsCount; // [SETTING_ID 5] The mobile numbers of the recipients for alerts
 
 boolean serialDebug = true;
-boolean sdModuleInitialized;
-boolean configFileApplied;
+boolean sdCardReady = false;
+boolean configFileApplied = false;
+boolean connectedToApp = false;
+
+unsigned long timeoutStart;
+int operationState = 0;
+byte readByte;
+boolean incomingStream = false;
+String currentBuild;
 
 void setup() {
+    // initialize Serial communicatioin at 2M baud rate to allow for faster data transfer rates,
+    // mainly for large data sets consisting of tens of thousands of lines of data
     Serial.begin(2000000);
     Wire.begin();
+
+    pinMode(ledRed,OUTPUT);
+    pinMode(ledYellow,OUTPUT);
+    pinMode(ledGreen,OUTPUT);
+
+    digitalWrite(ledRed,LOW);
+    digitalWrite(ledYellow,LOW);
+    digitalWrite(ledGreen,LOW);
+
+    digitalWrite(ledRed,HIGH);
+    delay(1000);
+    digitalWrite(ledYellow,HIGH);
+    delay(1000);
+    digitalWrite(ledGreen,HIGH);
+
+    // wait 3 seconds for signal from app
+    // TODO test if you can reduce this waiting time to make startup feel snappier
+    timeoutStart = millis();
+    Serial.write(128); // Sends a connection request to tell app that the device is ready for a connection
+    while ((millis() - timeoutStart) < 3000) {
+        if (Serial.available()) {
+            if (Serial.read() == 129) {
+                connectedToApp = true;
+            }
+        }
+    }
 
     // Ultrasonic Sensor
     pinMode(pingPin, OUTPUT);
@@ -55,96 +94,91 @@ void setup() {
     digitalWrite(sensorPin, HIGH);
     pulseCount = 0;
     flowRate = 0.0;
-    flowMilliLitres = 0;
     oldFlowRateMeasureTime = 0;
     // The Hall-effect sensor is connected to pin 2 which uses interrupt 0.
     // Configured to trigger on a FALLING state change (transition from HIGH
     // state to LOW state)
     attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
 
-    // Initializes the SD Card module and chekcs if it is successful
+    // Initializes and checks if the SD is ready for use
     if (!SD.begin(sdPin)) {
-        sdModuleInitialized = false;
-        Serial.println("SD not Initialized"); // TEMP Remove this to save memory
+        sdCardReady = false;
+        debugln("SD not ready");
     }
     else {
-        sdModuleInitialized = true;
-        Serial.println("SD Initialized"); // TEMP Remove this to save memory
-
+        sdCardReady = true;
+        debugln("SD ready");
         if (applyConfigFile()) {
             configFileApplied = true;
-            Serial.println("Settings applied");
-            getLogSize();
-        }
-        else {
-            Serial.println("Unable to apply settings");
+            debugln("Config applied");
         }
     }
 
-    
-    
-    // TEMP Remove this to save memory
-    if (serialDebug) {
-        Serial.print("Scan Interval : ");
-        Serial.print(scanInterval);
-        Serial.println(" seconds");
+    //connectedToApp = true; // TEMP Remove this later, this is only for testing with the app itself
+}
 
-        Serial.print("Depth Offset : ");
-        Serial.print(depthOffset);
-        Serial.println(" cm");
+void loop() {
+    // if the device is connected to the app
+    if (connectedToApp) {
+        // if a byte arrives, read it
+        if (Serial.available()) {
+            setOperationState(Serial.read()); // set operation state according to the byte that was received
+        }
 
-        Serial.print("Depth Sampling Count : ");
-        Serial.print(depthSamplingCount);
-        Serial.println(" samples");
+        switch (operationState) {
+            case 1:
+                getLogSize();
+                resetOperationState();
+                break;
+
+            case 2:
+                uploadData();
+                resetOperationState();
+                break;
+        }
     }
-}
-
-void loop() {
-
-}
-
-/*
-void loop() {
-    if ((millis() - oldFlowRateMeasureTime) > 1000) {
-        // Disable the interrupt while calculating flow rate and sending the value to the host
-        detachInterrupt(sensorInterrupt);
+    // Only perform routine operations when:
+    // - the SD card module is properly initialized
+    // - the device is not connected to the app
+    // - the configuration file has been properly implemented
+    else if (!connectedToApp && sdCardReady && configFileApplied) {
+        if ((millis() - oldFlowRateMeasureTime) > 1000) {
+            debug("Measuring flow... ");
+            // Disable the interrupt while calculating flow rate and sending the value to the host
+            detachInterrupt(sensorInterrupt);
+                
+            // Because this loop may not complete in exactly 1 second intervals we calculate
+            // the number of milliseconds that have passed since the last execution and use
+            // that to scale the output. We also apply the calibrationFactor to scale the output
+            // based on the number of pulses per second per units of measure (litres/minute in
+            // this case) coming from the sensor.
+            flowRate = ((1000.0 / (millis() - oldFlowRateMeasureTime)) * pulseCount) / calibrationFactor;
             
-        // Because this loop may not complete in exactly 1 second intervals we calculate
-        // the number of milliseconds that have passed since the last execution and use
-        // that to scale the output. We also apply the calibrationFactor to scale the output
-        // based on the number of pulses per second per units of measure (litres/minute in
-        // this case) coming from the sensor.
-        flowRate = ((1000.0 / (millis() - oldFlowRateMeasureTime)) * pulseCount) / calibrationFactor;
-        
-        // Note the time this processing pass was executed. Note that because we've
-        // disabled interrupts the millis() function won't actually be incrementing right
-        // at this point, but it will still return the value it was set to just before
-        // interrupts went away.
-        oldFlowRateMeasureTime = millis();
-        
-        // Divide the flow rate in litres/minute by 60 to determine how many litres have
-        // passed through the sensor in this 1 second interval, then multiply by 1000 to
-        // convert to millilitres.
-        flowMilliLitres = (flowRate / 60) * 1000;
-        
-        // Print the flow rate for this second in litres / minute
-        Serial.print("Flow rate: ");
-        Serial.print(int(flowRate));  // Print the integer part of the variable
-        Serial.println("L/min");
-        
-        // Reset the pulse counter so we can start incrementing again
-        pulseCount = 0;
-        
-        // Enable the interrupt again now that we've finished sending output
-        attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
-    }
+            // Note the time this processing pass was executed. Note that because we've
+            // disabled interrupts the millis() function won't actually be incrementing right
+            // at this point, but it will still return the value it was set to just before
+            // interrupts went away.
+            oldFlowRateMeasureTime = millis();
+            
+            // Print the flow rate for this second in litres / minute
+            debug((String)int(flowRate));  // Print the integer part of the variable
+            debug(" L/min... ");
+            
+            // Reset the pulse counter so we can start incrementing again
+            pulseCount = 0;
+            
+            // Enable the interrupt again now that we've finished sending output
+            attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+            debugln("done!");
+        }
 
-    DateTime now = RTC.now();
-    if ((now.unixtime() - lastScan) >= scanInterval) {
-        recordData();
+        DateTime now = RTC.now();
+        if ((now.unixtime() - lastScan) >= scanInterval) {
+            recordData();
+        }
     }
+    //debugln("End reached");
 }
-*/
 
 // TODO Make a method that will record the time of the last reading to a cache file of some sorts, so that in the event of a power outage, the device will remember when the last reading happened and start a scan in case the scan interval time has elapsed
 // TODO Implement the GSM Module
@@ -226,37 +260,28 @@ long checkDepth() {
 }
 
 boolean writeToFile(String data, String file) {
-    boolean writeSuccess = false;
-
-    // TEMP serialDebug Get rid of this to save memory
-    if (serialDebug) {
-        Serial.print("Writing \"");
-        Serial.print(data);
-        Serial.print("\" to \"");
-        Serial.print(file);
-        Serial.println("\"");
-    }
-
-    if (sdModuleInitialized) {
+    debug("Writing to file...");
+    if (sdCardReady) {
         openFile = SD.open(file, FILE_WRITE);
         if (openFile) {
-            openFile.println(data);
-            openFile.close();
-            writeSuccess = true;
-        }
-    }
+            debug("File opened. Writing ");
+            debugln(data);
 
-    // TEMP serialDebug Get rid of this to save memory
-    if (serialDebug) {
-        if (writeSuccess) {
-            Serial.println("Write Successful");
+            openFile.println(data);
+            debug("Done writing. Closing file...");
+            openFile.close();
+            debugln("Done!");
+            return true;
         }
         else {
-            Serial.println("Write Unsuccessful");
+            debugln("Can't open file");
         }
     }
-
-    return writeSuccess;
+    else {
+        debugln("SD is not ready!");
+    }
+    
+    return false;
 }
 
 boolean applyConfigFile() {
@@ -408,6 +433,9 @@ boolean applyConfigFile() {
 
             lastRead = currentRead;
         }
+
+        debugln("Closing config file");
+        openFile.close();
     }
     // if the file could not be opened
     else {
@@ -425,7 +453,7 @@ boolean applyConfigFile() {
 uint32_t getLastScanTimeFromCache() {
     uint32_t returnValue = 0;
 
-    if (sdModuleInitialized) {
+    if (sdCardReady) {
         openFile = SD.open(cacheFile); // Opens the cache file
         if (openFile) {
             String tempRead = "";
@@ -439,10 +467,6 @@ uint32_t getLastScanTimeFromCache() {
                 }
             }
             openFile.close();
-        }
-        else if (!openFile && serialDebug) {
-            // TEMP serialDebug Get rid of this to save memory
-            Serial.println("Could not open cache file");
         }
     }
 
@@ -462,6 +486,8 @@ int recordData() {
     String logEntry = "";
     boolean validData = false;
 
+    debugln("Recording data...");
+
     while (!validData)
     {
         logEntry += scanStart;
@@ -470,12 +496,12 @@ int recordData() {
         logEntry += char(47);
         logEntry += flowRate;
         logEntry += char(47);
-        logEntry += flowMilliLitres;
-        logEntry += char(47);
         logEntry += depth;
         logEntry += char(47);
         logEntry += depthOffset;
 
+        validData = true; // TODO Remove this override
+        /*
         if (verifyDataIntegrity(logEntry)) {
             validData = true;
         }
@@ -483,8 +509,12 @@ int recordData() {
             Serial.println("Data integrity compromised. Retrying...");
             logEntry = "";
         }
+        */
     }
     writeToFile(logEntry, dataLog);
+
+    
+    debugln("Done!");
 }
 
 // Interrupt Service Routine
@@ -493,41 +523,24 @@ void pulseCounter() {
   pulseCount++;
 }
 
-// Verifies log entries to ensure that only legal characters are used before writing to log file
-boolean verifyDataIntegrity(String input) {
-    for (int x = 0; x < input.length(); x++) {
-        byte readByte = input.charAt(x);
-        if (readByte < 45 || readByte > 57) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 // TODO Document and optimize this if possible
 // TODO create a log size query
 // Starts a data upload stream
 void uploadData() {
     openFile = SD.open(dataLog);
     if (openFile) {
-        byte currentByte;
-        byte lastByte = 10;
+        Serial.write(2); // upload start marker
         while(openFile.available()) {
-            currentByte = openFile.read();
-
-            if (lastByte == 10) {
-                Serial.write(2);
-            }
-
-            lastByte = currentByte;
+            Serial.write(openFile.read());
         }
+        Serial.write(3); // upload end marker
         openFile.close();
     }
 }
 
 // Queries and sends the size of the log file over serial
 void getLogSize() {
+    debug("counting lines...");
     int lines = 0;
     openFile = SD.open(dataLog);
     if (openFile) {
@@ -539,6 +552,10 @@ void getLogSize() {
         }
         openFile.close();
     }
+    else {
+        debug("cant open file ");
+    }
+    debug("done! ");
     
     Serial.write(2);
     Serial.print(lines);
@@ -553,4 +570,41 @@ boolean validInt(String input) {
         }
     }
     return true;
+}
+
+void setOperationState(byte state) {
+    switch(state) {
+        case 136:
+            operationState = 1; // Get the number of entries
+            break;
+
+        case 137:
+            operationState = 2; // Upload log data
+            break;
+    }
+}
+
+void resetOperationState() {
+    operationState = 0;
+}
+
+void logActivity(int activityID) {
+    // Records the time of successful initializaition
+    DateTime now = RTC.now();
+    uint32_t init = now.unixtime();
+    String data = (String)init;
+    data += '/' + activityID;
+    writeToFile(data,activityLog);
+}
+
+void debugln(String message) {
+    if (serialDebug) {
+        Serial.println(message);
+    }
+}
+
+void debug(String message) {
+    if (serialDebug) {
+        Serial.print(message);
+    }
 }
