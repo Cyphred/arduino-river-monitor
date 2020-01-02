@@ -29,13 +29,12 @@ int ledConnected = A0;
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
 File openFile;
-String dataLog = "NEWDATA.LOG";
+String dataLog = "DATA.LOG";
 String cacheFile = "CACHE.FILE";
 String configFile = "SETTINGS.CFG";
 String activityLog = "ACTIVITY.LOG";
 String logCountFile = "LOGCOUNT.FILE";
 String smsLog = "SMS.LOG";
-int failedWrites = 0;
 
 // Variables to be set by config file to be read from the SD Card
 int scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
@@ -71,7 +70,8 @@ void setup() {
     digitalWrite(ledError,HIGH);
     digitalWrite(ledConnected,HIGH);
 
-    // wait 3 seconds for signal from app
+    Serial.write(128); // Tells the app that the device is ready to connect
+    // wait 3 seconds for signal from app. If the signal is not received, proceed with normal operations
     // TODO test if you can reduce this waiting time to make startup feel snappier
     timeoutStart = millis();
     while ((millis() - timeoutStart) < 3000) {
@@ -517,8 +517,6 @@ void blinkActivityLED() {
 }
 
 void suspendOperations() {
-    // TODO Error code for write failure
-    // TODO Alert recipient of write errors and suspend current operations
     digitalWrite(ledError,HIGH);
     digitalWrite(ledActivity,LOW);
     debugln("Operations Suspended");
