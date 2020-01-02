@@ -110,12 +110,29 @@ void setup() {
         }
     }
 
-    if (sdCardReady && configFileApplied) {
-        digitalWrite(ledError,LOW);
+    int initializationSubCode = 0;
+    if (connectedToApp) {
+        if (sdCardReady && configFileApplied) {
+            digitalWrite(ledError,LOW);
+            initializationSubCode = 1; // Connected and no problems
+        }
+        else {
+            initializationSubCode = 3;  // Connected with problems
+        }
     }
-    if (!connectedToApp) {
+    // if not connected to the app
+    else {
         digitalWrite(ledConnected,LOW);
+
+        if (sdCardReady && configFileApplied) {
+            digitalWrite(ledError,LOW);
+            initializationSubCode = 0; // Disconnected and no problems
+        }
+        else {
+            initializationSubCode = 2;  // Disconnected with problems
+        }
     }
+    logActivity(0,initializationSubCode); // Logs the current startup
     digitalWrite(ledActivity,LOW);
 }
 
@@ -270,17 +287,26 @@ long checkDepth() {
 }
 
 boolean writeToFile(String data, String file) {
+    debug("Writing \"");
+    debug(data);
+    debug("\" to \"");
+    debug(file);
+    debug("\"... ");
+
     if (sdCardReady) {
         openFile = SD.open(file, FILE_WRITE);
         if (openFile) {
             openFile.println(data);
             openFile.close();
+            debugln("Success!");
             return true;
         }
         else {
+            debugln("Failed! - Can't open file!");
             return false;
         }
     }
+    debugln("Failed! - SD not ready");
     return false;
 }
 
@@ -399,19 +425,13 @@ boolean recordData() {
     logEntry += char(47);
     logEntry += depth;
 
-    debug("Writing ");
-    debug(logEntry);
-    debug(" to file... ");
-
     for (int x = 0; x < 5; x++) {
         if (writeToFile(logEntry, dataLog)) {
             // TODO Add write success
-            debugln("Success!");
             return true;
         }
         else {
             // TODO Add write failure
-            debugln("Failed!");
         }
     }
 
@@ -521,4 +541,15 @@ void suspendOperations() {
     digitalWrite(ledActivity,LOW);
     debugln("Operations Suspended");
     sdCardReady = false;
+}
+
+// Records activity to activity log file
+void logActivity(int code, int subcode) {
+    DateTime now = RTC.now();
+    String activityLogEntry = (String)now.unixtime();
+    activityLogEntry += (char)47;
+    activityLogEntry += code;
+    activityLogEntry += (char)58;
+    activityLogEntry += subcode;
+    writeToFile(activityLogEntry,activityLog);
 }
