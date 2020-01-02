@@ -151,7 +151,7 @@ void loop() {
                 break;
 
             case 2:
-                uploadData();
+                uploadData(dataLog);
                 resetOperationState();
                 break;
         }
@@ -160,6 +160,8 @@ void loop() {
     // - the SD card module is properly initialized
     // - the device is not connected to the app
     // - the configuration file has been properly implemented
+    // Otherwise, do nothing
+    // TODO or maybe, make it send alerts to the alert recipient about the malfunction
     else if (!connectedToApp && sdCardReady && configFileApplied) {
         
         // Measures the flow rate every second
@@ -447,8 +449,8 @@ void pulseCounter() {
 // TODO Document and optimize this if possible
 // TODO create a log size query
 // Starts a data upload stream
-void uploadData() {
-    openFile = SD.open(dataLog);
+void uploadData(String file) {
+    openFile = SD.open(file);
     if (openFile) {
         Serial.write(2); // upload start marker
         while(openFile.available()) {
