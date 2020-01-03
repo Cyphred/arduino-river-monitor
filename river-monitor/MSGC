@@ -1,14 +1,15 @@
 ARDUINO RIVER MONITOR
 [ALERT]
-$DATE$ $TIME$
+$A $B
 
 One or more alert parameters have been exceeded.
 Device has been put on alert mode.
-Scan interval duration will be overriden to $OVRD$ minutes, if it is not already shorter.
-Device will revert back to normal mode when measurements maintain a safe level within the span of $RVTM$ minutes.
+Scan interval duration will be overriden to $L minutes, if it is not already shorter.
+Device will revert back to normal mode when measurements maintain a safe level within the span of $M minutes.
+Revert time estimate: $N
 
-Depth Status - $DSTA$
-Current Depth: $DEPT$M $DPSN$$DPPR$% in the past hour
+Depth Status - $C
+Current Depth: $Dm $E$F% in the past hour
 
-Flow Rate Status - $FSTA$
-Current Flow Rate: $FLOW$ $FLSN$$FLPR$% in the past hour
+Flow Rate Status - $G
+Current Flow Rate: $H $I$J% in the past hour

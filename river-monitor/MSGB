@@ -1,7 +1,7 @@
 ARDUINO RIVER MONITOR
 [NOTIFICATION]
-$DATE$ $TIME$
+$A $B
 
 Operations suspended.
-Error code $CODE$
+Error code $K
 Immediate action required. See manual for a list of error codes.
