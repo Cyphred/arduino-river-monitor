@@ -5,8 +5,7 @@
 // Flow Rate Sensor
 byte sensorInterrupt = 0;  // 0 = digital pin 2
 byte sensorPin       = 2;
-// The hall-effect flow sensor outputs approximately 4.5 pulses per second per
-// litre/minute of flow.
+// The hall-effect flow sensor outputs approximately 4.5 pulses per second per litre/minute of flow.
 float calibrationFactor = 4.5;
 volatile byte pulseCount = 0;  
 float flowRate;
@@ -423,9 +422,13 @@ boolean recordData() {
     logEntry += char(47);
     logEntry += lastScan;
     logEntry += char(47);
+    logEntry += scanInterval;
+    logEntry += char(47);
     logEntry += flowRate;
     logEntry += char(47);
     logEntry += depth;
+    logEntry += char(47);
+    logEntry += depthOffset;
 
     for (int x = 0; x < 5; x++) {
         if (writeToFile(logEntry, dataLog)) {
