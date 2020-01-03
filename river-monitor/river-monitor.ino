@@ -136,9 +136,14 @@ void setup() {
 }
 
 boolean nothingHappens = false; //TEMP
+unsigned long lasttime = millis(); //TEMP
 
 void loop() {
-
+    // TEMP - This is for testing some stuff at intervals
+    if ((millis() - lasttime) > 10000) {
+        lasttime = millis(); 
+    }
+    // TEMP =============================================
     // if the device is connected to the app
     if (connectedToApp) {
         // if a byte arrives, read it
@@ -569,4 +574,12 @@ void logActivity(int code, int subcode) {
     activityLogEntry += (char)58;
     activityLogEntry += subcode;
     writeToFile(activityLogEntry,activityLogFile);
+}
+
+// Prints the current unix time to Serial
+void getTime() {
+    DateTime now = RTC.now();
+    Serial.write(2);
+    Serial.print(now.unixtime());
+    Serial.write(3);
 }
