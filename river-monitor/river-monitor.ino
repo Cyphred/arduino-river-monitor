@@ -28,12 +28,12 @@ int ledConnected = A0;
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
 File openFile;
-String dataLog = "DATA.LOG";
+String dataLogFile = "DATA.LOG";
 String cacheFile = "CACHE.FILE";
 String configFile = "SETTINGS.CFG";
-String activityLog = "ACTIVITY.LOG";
+String activityLogFile = "ACTIVITY.LOG";
 String logCountFile = "LOGCOUNT.FILE";
-String smsLog = "SMS.LOG";
+String smsLogFile = "SMS.LOG";
 
 // Variables to be set by config file to be read from the SD Card
 int scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
@@ -135,7 +135,10 @@ void setup() {
     digitalWrite(ledActivity,LOW);
 }
 
+boolean nothingHappens = false; //TEMP
+
 void loop() {
+
     // if the device is connected to the app
     if (connectedToApp) {
         // if a byte arrives, read it
@@ -150,7 +153,7 @@ void loop() {
                 break;
 
             case 2:
-                uploadData(dataLog);
+                uploadData(dataLogFile);
                 resetOperationState();
                 break;
         }
@@ -204,7 +207,11 @@ void loop() {
         }
     }
     else {
-        debugln("Nothing happens now...");
+        // TEMP nothing happens
+        if (!nothingHappens) {
+            nothingHappens = true;
+            debugln("\n\nNothing happens now...");
+        }
     }
 }
 
@@ -405,13 +412,18 @@ uint32_t getLastScanTimeFromCache() {
     return returnValue;
 }
 
+// Read sensors and record data to the log file
 boolean recordData() {
+    // Get the time of start for the reading
     DateTime now = RTC.now();
     uint32_t scanStart = now.unixtime();
-    long depth = checkDepth();
+
+    long depth = checkDepth(); // Get the current depth
+
+    // Keep track of when the depth scan finished
     now = RTC.now();
     lastScan = now.unixtime();
-
+    
     // DATA.LOG Entries will first be collected and formatted into String logEntry.
     // The format will be the following with '/' as a column separator:
     // Time Start / Time End / Flow Rate / Depth
@@ -431,7 +443,7 @@ boolean recordData() {
     logEntry += depthOffset;
 
     for (int x = 0; x < 5; x++) {
-        if (writeToFile(logEntry, dataLog)) {
+        if (writeToFile(logEntry, dataLogFile)) {
             // TODO Add write success
             return true;
         }
@@ -467,7 +479,7 @@ void uploadData(String file) {
 // Queries and sends the size of the log file over serial
 void getLogSize() {
     int lines = 0;
-    openFile = SD.open(dataLog);
+    openFile = SD.open(dataLogFile);
     if (openFile) {
         while(openFile.available()) {
             byte currentByte = openFile.read();
@@ -515,7 +527,7 @@ void logActivity(int activityID) {
     uint32_t init = now.unixtime();
     String data = (String)init;
     data += '/' + activityID;
-    writeToFile(data,activityLog);
+    writeToFile(data,activityLogFile);
 }
 
 void debugln(String message) {
@@ -556,5 +568,5 @@ void logActivity(int code, int subcode) {
     activityLogEntry += code;
     activityLogEntry += (char)58;
     activityLogEntry += subcode;
-    writeToFile(activityLogEntry,activityLog);
+    writeToFile(activityLogEntry,activityLogFile);
 }
