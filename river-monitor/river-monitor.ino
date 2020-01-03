@@ -1,6 +1,7 @@
 #include <SPI.h> // For SPI Communication with the SD Card Module
 #include <SD.h> // Library for the SD Card Module
 #include "DS3231.h"
+#include <DS3231.h>
 
 // Flow Rate Sensor
 byte sensorInterrupt = 0;  // 0 = digital pin 2
@@ -17,6 +18,7 @@ const int echoPin = 5;  // Echo Pin of Ultrasonic Sensor
 
 // RTC Module
 RTClib RTC;
+DS3231 Clock;
 uint32_t lastScan = 0;
 
 // Indicator LEDs
@@ -28,12 +30,12 @@ int ledConnected = A0;
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
 File openFile;
-String dataLogFile = "DATA.LOG";
-String cacheFile = "CACHE.FILE";
-String configFile = "SETTINGS.CFG";
-String activityLogFile = "ACTIVITY.LOG";
-String logCountFile = "LOGCOUNT.FILE";
-String smsLogFile = "SMS.LOG";
+// TODO convert filename strings to character arrays, see if that makes any difference
+char dataLogFile[5] = {68,65,84,65}; // DATA
+char cacheFile[5] = {67,65,67,72}; // CACH
+char configFile[5] = {67,79,78,70}; // CONF
+char activityLogFile[4] = {65,67,84}; // ACT
+char smsLogFile[4] = {83,77,83}; // SMS
 
 // Variables to be set by config file to be read from the SD Card
 int scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
@@ -141,7 +143,7 @@ unsigned long lasttime = millis(); //TEMP
 void loop() {
     // TEMP - This is for testing some stuff at intervals
     if ((millis() - lasttime) > 10000) {
-        lasttime = millis(); 
+        lasttime = millis();
     }
     // TEMP =============================================
     // if the device is connected to the app
@@ -561,6 +563,7 @@ void blinkActivityLED() {
 void suspendOperations() {
     digitalWrite(ledError,HIGH);
     digitalWrite(ledActivity,LOW);
+    logActivity(1,0);
     debugln("Operations Suspended");
     sdCardReady = false;
 }
@@ -582,4 +585,127 @@ void getTime() {
     Serial.write(2);
     Serial.print(now.unixtime());
     Serial.write(3);
+}
+
+// Sets the time for the RTC Module
+boolean setTime() {
+    timeoutStart = millis();
+    boolean timedOut = true;
+    char inputString[13];
+    byte year,month,date,dayOfWeek,hour,minute,second;
+    byte inputCount = 0;
+
+    // While timeout is not maxed out, and the input count is not at 20 yet
+    while ((millis() - timeoutStart) < 3000 && inputCount != 13) {
+        if (Serial.available()) {
+            byte receivedByte = Serial.read();
+            // Check if received byte is a valid digit
+            if (receivedByte > 47 && receivedByte < 58) {
+                inputString[inputCount] = receivedByte;
+                inputCount++;
+                // if the input length is satisfied
+                if (inputCount == 20) {
+                    timedOut = false;
+                    break;
+                }
+            }
+            // if the received byte is not a valid digit, cancel the operation
+            else {
+                return false;
+            }
+        }
+    }
+    
+    byte converted;
+    boolean invalidNumberFound = false;
+    for (int x = 1; x < 12; x += 2) {
+        converted = (((byte)inputString[x-1] - 48) * 10 + ((byte)inputString[x] - 48));
+        switch (x) {
+            case 1:
+                year = converted;
+                break;
+            case 3:
+                if (converted > 0 && converted < 13) {
+                    month = converted;
+                }
+                else {
+                    invalidNumberFound = true;
+                }
+                break;
+            case 5:
+                if (converted > 0) {
+                    // if the month is february
+                    if (month == 2) {
+                        // if the date is 28 below, or the date is 29 but it is a leap year
+                        if (converted < 29 || (converted == 29 && (year % 4) == 0)) {
+                            date = converted;
+                        }
+                        else {
+                            invalidNumberFound = true;
+                        }
+                    }
+                    // if the month has 31 days
+                    else if ((month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12) && converted < 32) {
+                        date = converted;
+                    }
+                    // if the month has 30 days
+                    else if ((month == 4 || month == 6 || month == 9 || month == 11) && converted < 31) {
+                        date = converted;
+                    }
+                    else {
+                        invalidNumberFound = true;
+                    }
+                }
+                else {
+                    invalidNumberFound = true;
+                }
+                break;
+            case 7:
+                if (converted >= 0 && converted < 25) {
+                    hour = converted;
+                }
+                else {
+                    invalidNumberFound = true;
+                }
+                break;
+            case 9:
+                if (converted >= 0 && converted < 60) {
+                    minute = converted;
+                }
+                else {
+                    invalidNumberFound = true;
+                }
+                break;
+            case 11:
+                if (converted >= 0 && converted < 60) {
+                    second = converted;
+                }
+                else {
+                    invalidNumberFound = true;
+                }
+                break;
+        }
+
+        if (invalidNumberFound) {
+            return false;
+        }
+    }
+    
+    converted = (byte)inputString[12] - 48;
+    if (converted > 0 && converted < 8) {
+        dayOfWeek = converted;
+    }
+    else {
+        return false;
+    }
+
+    Clock.setYear(year);
+    Clock.setMonth(month);
+    Clock.setDate(date);
+    Clock.setDoW(dayOfWeek);
+    Clock.setHour(hour);
+    Clock.setMinute(minute);
+    Clock.setSecond(second);
+
+    return true;
 }
