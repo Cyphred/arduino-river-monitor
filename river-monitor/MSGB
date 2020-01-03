@@ -1,0 +1,7 @@
+ARDUINO RIVER MONITOR
+[NOTIFICATION]
+$DATE$ $TIME$
+
+Operations suspended.
+Error code $CODE$
+Immediate action required. See manual for a list of error codes.

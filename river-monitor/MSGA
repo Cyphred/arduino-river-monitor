@@ -1,0 +1,9 @@
+ARDUINO RIVER MONITOR
+[REPORT]
+$DATE$ $TIME$
+
+Depth Status - $DSTA$
+Current Depth: $DEPT$M $DPSN$$DPPR$% in the past hour
+
+Flow Rate Status - $FSTA$
+Current Flow Rate: $FLOW$ $FLSN$$FLPR$% in the past hour
