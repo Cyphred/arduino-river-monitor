@@ -50,10 +50,7 @@ boolean configFileApplied = false;
 boolean connectedToApp = false;
 
 unsigned long timeoutStart;
-int operationState = 0;
-byte readByte;
-boolean incomingStream = false;
-String currentBuild;
+byte operationState = 0;
 
 void setup() {
     // initialize Serial communicatioin at 2M baud rate to allow for faster data transfer rates,
@@ -150,18 +147,18 @@ void loop() {
     if (connectedToApp) {
         // if a byte arrives, read it
         if (Serial.available()) {
-            setOperationState(Serial.read()); // set operation state according to the byte that was received
+            operationState = Serial.read(); // set operation state according to the byte that was received
         }
 
         switch (operationState) {
-            case 1:
+            case 136:
                 getLogSize();
-                resetOperationState();
+                operationState = 0;
                 break;
 
-            case 2:
+            case 137:
                 uploadData(dataLogFile);
-                resetOperationState();
+                operationState = 0;
                 break;
         }
     }
@@ -301,6 +298,7 @@ long checkDepth() {
     return returnValue;
 }
 
+// Writes a string to a file
 boolean writeToFile(String data, String file) {
     debug("Writing \"");
     debug(data);
@@ -308,14 +306,17 @@ boolean writeToFile(String data, String file) {
     debug(file);
     debug("\"... ");
 
+    // only run if the SD card is properly initialized
     if (sdCardReady) {
         openFile = SD.open(file, FILE_WRITE);
+        // if the file is successfully opened
         if (openFile) {
             openFile.println(data);
             openFile.close();
             debugln("Success!");
             return true;
         }
+        // if the file can't be opened
         else {
             debugln("Failed! - Can't open file!");
             return false;
@@ -325,6 +326,7 @@ boolean writeToFile(String data, String file) {
     return false;
 }
 
+// Applies the settings specified in the configuration file
 boolean applyConfigFile() {
     /*
     * The config file is now formatted as a single line with each value separated with a slash (character decimal 47)
@@ -384,6 +386,7 @@ boolean applyConfigFile() {
             }
         }
 
+        // if all settings have been properly applied
         if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient_a && applied_alertRecipient_b) {
             return true;
         }
@@ -396,6 +399,7 @@ boolean applyConfigFile() {
     return false;
 }
 
+// TODO Work on this
 uint32_t getLastScanTimeFromCache() {
     uint32_t returnValue = 0;
 
@@ -449,6 +453,7 @@ boolean recordData() {
     logEntry += char(47);
     logEntry += depthOffset;
 
+    // try to write 5 times. If it fails all 5, abort the write
     for (int x = 0; x < 5; x++) {
         if (writeToFile(logEntry, dataLogFile)) {
             // TODO Add write success
@@ -483,7 +488,7 @@ void uploadData(String file) {
     }
 }
 
-// Queries and sends the size of the log file over serial
+// Queries and sends the number of entries of the log file over serial
 void getLogSize() {
     int lines = 0;
     openFile = SD.open(dataLogFile);
@@ -502,53 +507,32 @@ void getLogSize() {
     Serial.write(3);
 }
 
-// Checks if the current String is a valid candidate for conversion into int
-boolean validInt(String input) {
-    for (int x = 0; x < input.length(); x++) {
-        if (!isDigit(input.charAt(x))) {
-            return false;
-        }
-    }
-    return true;
-}
-
-void setOperationState(byte state) {
-    switch(state) {
-        case 136:
-            operationState = 1; // Get the number of entries
-            break;
-
-        case 137:
-            operationState = 2; // Upload log data
-            break;
-    }
-}
-
-void resetOperationState() {
-    operationState = 0;
-}
-
-void logActivity(int activityID) {
-    // Records the time of successful initializaition
+// Records activity to activity log file
+void logActivity(int code, int subcode) {
     DateTime now = RTC.now();
-    uint32_t init = now.unixtime();
-    String data = (String)init;
-    data += '/' + activityID;
-    writeToFile(data,activityLogFile);
+    String activityLogEntry = (String)now.unixtime();
+    activityLogEntry += (char)47;
+    activityLogEntry += code;
+    activityLogEntry += (char)58;
+    activityLogEntry += subcode;
+    writeToFile(activityLogEntry,activityLogFile);
 }
 
+// TEMP Remove these when you're done
 void debugln(String message) {
     if (serialDebug) {
         Serial.println(message);
     }
 }
 
+// TEMP Remove these when you're done
 void debug(String message) {
     if (serialDebug) {
         Serial.print(message);
     }
 }
 
+// Toggles the activity LED when called
 void blinkActivityLED() {
     if (activityLEDState == 0) {
         activityLEDState = 1;
@@ -560,23 +544,13 @@ void blinkActivityLED() {
     }
 }
 
+// Suspends all operations
 void suspendOperations() {
     digitalWrite(ledError,HIGH);
     digitalWrite(ledActivity,LOW);
     logActivity(1,0);
     debugln("Operations Suspended");
     sdCardReady = false;
-}
-
-// Records activity to activity log file
-void logActivity(int code, int subcode) {
-    DateTime now = RTC.now();
-    String activityLogEntry = (String)now.unixtime();
-    activityLogEntry += (char)47;
-    activityLogEntry += code;
-    activityLogEntry += (char)58;
-    activityLogEntry += subcode;
-    writeToFile(activityLogEntry,activityLogFile);
 }
 
 // Prints the current unix time to Serial
