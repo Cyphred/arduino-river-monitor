@@ -23,7 +23,7 @@ DS3231 Clock;
 uint32_t lastScan = 0;
 
 // Indicator LEDs
-int activityLEDState = 0;
+byte activityLEDState = 0;
 int ledActivity = A2;
 int ledError = A1;
 int ledConnected = A0;
@@ -39,9 +39,9 @@ char activityLogFile[4] = {65,67,84}; // ACT
 char smsLogFile[4] = {83,77,83}; // SMS
 
 // Variables to be set by config file to be read from the SD Card
-int scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
+byte scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
 long depthOffset;         // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
-int depthSamplingCount;   // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
+byte depthSamplingCount;   // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
 unsigned long alertRecipient_a;   // [SETTING_ID 3] The number of recipients for alerts and status updates
 unsigned long alertRecipient_b;   // [SETTING_ID 4] The number of recipients for alerts and status updates
 
@@ -120,7 +120,7 @@ void setup() {
         }
     }
 
-    int initializationSubCode = 0;
+    byte initializationSubCode = 0;
     if (connectedToApp) {
         if (sdCardReady && configFileApplied) {
             digitalWrite(ledError,LOW);
@@ -260,12 +260,12 @@ long checkDepth() {
     }
 
     long uniqueValues[depthSamplingCount]; // Stores all the unique values read
-    int uniqueValueInstances[depthSamplingCount]; // Keeps track of the instances a value has appeared in readValues
+    byte uniqueValueInstances[depthSamplingCount]; // Keeps track of the instances a value has appeared in readValues
     // Fill uniqueValueInstances with zeroes
     for (int x = 0; x < depthSamplingCount; x++) {
         uniqueValueInstances[x] = 0;
     }
-    int foundUniqueValues = 0; // Keeps track of the number of unique values stored
+    byte foundUniqueValues = 0; // Keeps track of the number of unique values stored
     // for each value contained in readValues
     for (long value: readValues) {
         // if no unique values are stored yet, store the current value from readValues
@@ -297,7 +297,7 @@ long checkDepth() {
         }
     }
 
-    int maxInstances = 0; // Keeps track of the highest score in uniqueValueInstances
+    byte maxInstances = 0; // Keeps track of the highest score in uniqueValueInstances
     long returnValue; // Keeps track of the address of the value with the highest score from uniqueValues
 
     for (int x = 0; x < foundUniqueValues; x++) {
@@ -359,7 +359,7 @@ boolean applyConfigFile() {
     // If the config file is successfully opened
     if (openFile) {
         byte currentRead; // Stores the currently-read currentByte
-        int currentID = 0; // The ID of the current setting being applied
+        byte currentID = 0; // The ID of the current setting being applied
         unsigned long currentValue = 0; // Stores the current value being read
 
         // While the config file has available data for reading
@@ -503,7 +503,7 @@ void uploadData(String file) {
 
 // Queries and sends the number of entries of the log file over serial
 void getLogSize() {
-    int lines = 0;
+    byte lines = 0;
     openFile = SD.open(dataLogFile);
     if (openFile) {
         while(openFile.available()) {
@@ -521,7 +521,7 @@ void getLogSize() {
 }
 
 // Records activity to activity log file
-void logActivity(int code, int subcode) {
+void logActivity(byte code, byte subcode) {
     DateTime now = RTC.now();
     String activityLogEntry = (String)now.unixtime();
     activityLogEntry += (char)47;
