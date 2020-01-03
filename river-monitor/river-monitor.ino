@@ -15,6 +15,7 @@ unsigned long oldFlowRateMeasureTime;
 // Ultrasonic Sensor
 const int pingPin = 6;  // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 5;  // Echo Pin of Ultrasonic Sensor
+long lastDepth;
 
 // RTC Module
 RTClib RTC;
@@ -51,6 +52,17 @@ boolean connectedToApp = false;
 
 unsigned long timeoutStart;
 byte operationState = 0;
+
+// TODO Sort these out
+byte depthStatus = 0;
+byte flowRateStatus = 0;
+byte lastErrorCode = 0;
+byte scanIntervalOverride; // scan interval ovverride during alert mode // TODO Add this to config file
+byte revertDuration; // TODO Add this to config file
+long revertTime;
+String status0 = "OK";
+String status1 = "ABOVE NORMAL";
+String status2 = "CRITICAL";
 
 void setup() {
     // initialize Serial communicatioin at 2M baud rate to allow for faster data transfer rates,
@@ -295,6 +307,7 @@ long checkDepth() {
         }
     }
 
+    lastDepth = returnValue;
     return returnValue;
 }
 
@@ -682,4 +695,103 @@ boolean setTime() {
     Clock.setSecond(second);
 
     return true;
+}
+
+void parseMessage(byte type) {
+    // 1 - MSGA
+    // 2 - MSGB
+    // 3 - MSGC
+    byte messageTemplate[5] = {77,83,71,(type + 64)};
+    boolean readField = false;
+
+    DateTime now = RTC.now();
+
+    openFile = SD.open(messageTemplate);
+    if (openFile) {
+        while (openFile.available()) {
+            byte readByte = openFile.read();
+            if (!readField) {
+                // if readByte is a dollar sign
+                if (readByte == 36) {
+                    readField = true;
+                }
+                else {
+                    Serial.write(readByte);
+                }
+            }
+            else {
+                readByte -= 64; // deduct 64 from the read byte so that the alphabet-based counting starts with 1 for letter 'A'
+                switch (readByte) {
+                    case 1: // A - Date
+                        Serial.print(now.year(), DEC);
+                        Serial.write(47); // backward slash
+                        Serial.print(now.month(), DEC);
+                        Serial.write(47); // backward slash
+                        Serial.print(now.day(), DEC);
+                        break;
+                    case 2: // B - Time
+                        Serial.print(now.hour(), DEC);
+                        Serial.write(58); // colon
+                        Serial.print(now.minute(), DEC);
+                        Serial.write(58); // colon
+                        Serial.print(now.second(), DEC);
+                        break;
+                    case 3: // C - Depth Status
+                        if (depthStatus == 0) {
+                            Serial.print(status0);
+                        }
+                        else if (depthStatus == 1) {
+                            Serial.print(status1);
+                        }
+                        else if (depthStatus == 2) {
+                            Serial.print(status2);
+                        }
+                    break;
+                    case 4: // D - Depth
+                        Serial.print(lastDepth);
+                        break;
+                    case 5: // E - Depth delta sign
+                        // TODO Print depth delta sign
+                        break;
+                    case 6: // F - Depth delta percentage
+                        // TODO Print depth delta
+                        break;
+                    case 7: // G - Flow Rate Status
+                        if (flowRateStatus == 0) {
+                            Serial.print(status0);
+                        }
+                        else if (flowRateStatus == 1) {
+                            Serial.print(status1);
+                        }
+                        else if (flowRateStatus == 2) {
+                            Serial.print(status2);
+                        }
+                        break;
+                    case 8: // H - Flow Rate
+                        Serial.print(flowRate);
+                        break;
+                    case 9: // I - Flow Rate delta sign
+                        // TODO Print flow rate delta sign
+                        break;
+                    case 10: // J - Flow Rate percentage
+                        // TODO Print flow rate delta
+                        break;
+                    case 11: // K - Error code
+                        Serial.print(lastErrorCode);
+                        break;
+                    case 12: // L - Scan interval override
+                        Serial.print(scanIntervalOverride);
+                        break;
+                    case 13: // M - Revert duration
+                        Serial.print(revertTime);
+                        break;
+                    case 14: // N - Revert time estimate
+                        Serial.print(revertDuration);
+                        break;
+                }
+                readField = false;
+            }
+        }
+        
+    }
 }
