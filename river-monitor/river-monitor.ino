@@ -31,7 +31,6 @@ int ledConnected = A0;
 // SD Card Module
 const int sdPin = 4; // CS Pin of SD Card Module
 File openFile;
-// TODO convert filename strings to character arrays, see if that makes any difference
 char dataLogFile[5] = {68,65,84,65}; // DATA
 char cacheFile[5] = {67,65,67,72}; // CACH
 char configFile[5] = {67,79,78,70}; // CONF
@@ -44,6 +43,8 @@ long depthOffset;         // [SETTING_ID 1] CM distance of the ultrasonic sensor
 byte depthSamplingCount;   // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
 unsigned long alertRecipient_a;   // [SETTING_ID 3] The number of recipients for alerts and status updates
 unsigned long alertRecipient_b;   // [SETTING_ID 4] The number of recipients for alerts and status updates
+byte scanIntervalOverride; // [SETTING_ID 5] scan interval ovverride during alert mode // TODO Add this to config file
+byte revertDuration; // [SETTING_ID 6] duration before removing alert mode
 
 boolean serialDebug = true;
 boolean sdCardReady = false;
@@ -54,11 +55,10 @@ unsigned long timeoutStart;
 byte operationState = 0;
 
 // TODO Sort these out
+boolean alertMode = false;
 byte depthStatus = 0;
 byte flowRateStatus = 0;
 byte lastErrorCode = 0;
-byte scanIntervalOverride; // scan interval ovverride during alert mode // TODO Add this to config file
-byte revertDuration; // TODO Add this to config file
 long revertTime;
 String status0 = "OK";
 String status1 = "ABOVE NORMAL";
@@ -352,6 +352,8 @@ boolean applyConfigFile() {
     boolean applied_depthSamplingCount = false;
     boolean applied_alertRecipient_a = false;
     boolean applied_alertRecipient_b = false;
+    boolean applied_scanIntervalOverride = false;
+    boolean applied_revertDuration = false;
 
     // Opens the configuration file
     openFile = SD.open(configFile);
@@ -388,6 +390,14 @@ boolean applyConfigFile() {
                         alertRecipient_b = currentValue;
                         applied_alertRecipient_b = true;
                         break;
+                    case 5:
+                        scanIntervalOverride = currentValue;
+                        applied_scanIntervalOverride = true;
+                        break;
+                    case 6:
+                        revertDuration = currentValue;
+                        applied_revertDuration = true;
+                        break;
                 }
 
                 currentValue = 0; // Resets the currently built value
@@ -400,7 +410,7 @@ boolean applyConfigFile() {
         }
 
         // if all settings have been properly applied
-        if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient_a && applied_alertRecipient_b) {
+        if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient_a && applied_alertRecipient_b && applied_scanIntervalOverride && applied_revertDuration) {
             return true;
         }
         else {
