@@ -46,7 +46,7 @@ unsigned long alertRecipient_b;   // [SETTING_ID 4] The number of recipients for
 byte scanIntervalOverride; // [SETTING_ID 5] scan interval ovverride during alert mode // TODO Add this to config file
 byte revertDuration; // [SETTING_ID 6] duration before removing alert mode
 
-boolean serialDebug = true;
+boolean serialDebug = false;
 boolean sdCardReady = false;
 boolean configFileApplied = false;
 boolean connectedToApp = false;
@@ -67,7 +67,7 @@ String status2 = "CRITICAL";
 void setup() {
     // initialize Serial communicatioin at 2M baud rate to allow for faster data transfer rates,
     // mainly for large data sets consisting of tens of thousands of lines of data
-    Serial.begin(9600);
+    Serial.begin(2000000);
     Wire.begin();
 
     // Initialization for status LEDs
@@ -88,7 +88,7 @@ void setup() {
         if (Serial.available()) {
             if (Serial.read() == 129) {
                 connectedToApp = true;
-                Serial.write(128); // Tells the app that the connection is established
+                Serial.write(130); // Tells the app that the connection is established
                 digitalWrite(ledConnected,HIGH);
             }
         }
@@ -163,13 +163,58 @@ void loop() {
         }
 
         switch (operationState) {
-            case 136:
+            case 131:
+                sendDepthWithOffset();
+                operationState = 0;
+                break;
+
+            case 132:
+                sendDepth();
+                operationState = 0;
+                break;
+
+            case 133:
+                sendFlowRate();
+                operationState = 0;
+                break;
+
+            case 134:
                 getLogSize();
                 operationState = 0;
                 break;
 
-            case 137:
+            case 135:
                 uploadData(dataLogFile);
+                operationState = 0;
+                break;
+
+            case 136:
+                uploadData(activityLogFile);
+                operationState = 0;
+                break;
+
+            case 137:
+                uploadData(configFile);
+                operationState = 0;
+                break;
+
+            case 138:
+                uploadData(smsLogFile);
+                operationState = 0;
+                break;
+
+            case 139:
+                getTime();
+                operationState = 0;
+                break;
+
+            case 140:
+                setTime();
+                operationState = 0;
+                break;
+
+            case 141:
+                updateConfig();
                 operationState = 0;
                 break;
         }
@@ -496,40 +541,6 @@ void pulseCounter() {
   pulseCount++;
 }
 
-// TODO Document and optimize this if possible
-// TODO create a log size query
-// Starts a data upload stream
-void uploadData(String file) {
-    openFile = SD.open(file);
-    if (openFile) {
-        Serial.write(2); // upload start marker
-        while(openFile.available()) {
-            Serial.write(openFile.read());
-        }
-        Serial.write(3); // upload end marker
-        openFile.close();
-    }
-}
-
-// Queries and sends the number of entries of the log file over serial
-void getLogSize() {
-    byte lines = 0;
-    openFile = SD.open(dataLogFile);
-    if (openFile) {
-        while(openFile.available()) {
-            byte currentByte = openFile.read();
-            if (currentByte == 10) {
-                lines++;
-            }
-        }
-        openFile.close();
-    }
-    
-    Serial.write(2);
-    Serial.print(lines);
-    Serial.write(3);
-}
-
 // Records activity to activity log file
 void logActivity(byte code, byte subcode) {
     DateTime now = RTC.now();
@@ -574,14 +585,6 @@ void suspendOperations() {
     logActivity(1,0);
     debugln("Operations Suspended");
     sdCardReady = false;
-}
-
-// Prints the current unix time to Serial
-void getTime() {
-    DateTime now = RTC.now();
-    Serial.write(2);
-    Serial.print(now.unixtime());
-    Serial.write(3);
 }
 
 // Sets the time for the RTC Module
@@ -707,6 +710,7 @@ boolean setTime() {
     return true;
 }
 
+// Reads message templates and fills in fields for sending via the GSM Module
 void parseMessage(byte type) {
     // 1 - MSGA
     // 2 - MSGB
@@ -804,4 +808,106 @@ void parseMessage(byte type) {
         }
         
     }
+}
+
+// Commands for sending data to the app
+
+void sendDepthWithOffset() {
+    Serial.write(2);
+    Serial.print((checkDepth() - depthOffset));
+    Serial.write(3);
+}
+
+void sendDepth() {
+    Serial.write(2);
+    Serial.print(checkDepth());
+    Serial.write(3);
+}
+
+void sendFlowRate() {
+    Serial.write(2);
+    Serial.print(flowRate);
+    Serial.write(3);
+}
+
+// Queries and sends the number of entries of the log file over serial
+void getLogSize() {
+    int lines = 0;
+    openFile = SD.open(dataLogFile);
+    if (openFile) {
+        while(openFile.available()) {
+            byte currentByte = openFile.read();
+            if (currentByte == 10) {
+                lines++;
+            }
+        }
+        openFile.close();
+    }
+    
+    Serial.write(2);
+    Serial.print(lines);
+    Serial.write(3);
+}
+
+// TODO Document and optimize this if possible
+// TODO create a log size query
+// Starts a data upload stream
+void uploadData(String file) {
+    openFile = SD.open(file);
+    if (openFile) {
+        Serial.write(2); // upload start marker
+        while(openFile.available()) {
+            Serial.write(openFile.read());
+        }
+        Serial.write(3); // upload end marker
+        openFile.close();
+    }
+}
+
+// Prints the current unix time to Serial
+void getTime() {
+    DateTime now = RTC.now();
+    unsigned long time = now.unixtime();
+    Serial.write(2);
+    Serial.print(time);
+    Serial.write(3);
+}
+
+// End of commands for sending data to the app
+
+// Overwrites the config file
+boolean updateConfig() {
+    timeoutStart = millis();
+    boolean byteStreamActive = false;
+    String tempBuild = "";
+    while ((millis() - timeoutStart) < 1000) {
+        if (Serial.available()) {
+            byte readByte = Serial.read();
+            if (!byteStreamActive && readByte == 2) {
+                byteStreamActive = true;
+            }
+            else if (byteStreamActive && readByte == 3) {
+                byteStreamActive = false;
+                overwriteFile(tempBuild,configFile);
+                return true;
+            }
+            else if (byteStreamActive) {
+                tempBuild += (char)readByte;
+            }
+        }
+    }
+    return false;
+}
+
+void overwriteFile(String data, String file) {
+    if (sdCardReady) {
+        SD.remove(file);
+        openFile = SD.open(file,FILE_WRITE);
+        if (openFile) {
+            openFile.print(data);
+            openFile.close();
+            return true;
+        }
+    }
+    return false;
 }
