@@ -90,6 +90,7 @@ void setup() {
                 connectedToApp = true;
                 Serial.write(130); // Tells the app that the connection is established
                 digitalWrite(ledConnected,HIGH);
+                break;
             }
         }
     }
@@ -112,11 +113,17 @@ void setup() {
     // Initializes and checks if the SD is ready for use
     if (!SD.begin(sdPin)) {
         sdCardReady = false;
+        debugln("SD not ready");
     }
     else {
         sdCardReady = true;
+        debugln("SD Ready");
         if (applyConfigFile()) {
             configFileApplied = true;
+            debugln("Config Applied");
+        }
+        else {
+            debugln("Config not Applied");
         }
     }
 
@@ -229,8 +236,6 @@ void loop() {
         
         // Measures the flow rate every second
         if ((millis() - oldFlowRateMeasureTime) > 1000) {
-            // Blinks the activity LED during a scan
-            blinkActivityLED();
             delay(100);
 
             // Disable the interrupt while calculating flow rate and sending the value to the host
@@ -255,9 +260,6 @@ void loop() {
             // Enable the interrupt again now that we've finished sending output
             attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
         }
-
-        // Makes sure the activity LED is not left on
-        blinkActivityLED();
 
         DateTime now = RTC.now();
         if ((now.unixtime() - lastScan) >= scanInterval) {
@@ -493,6 +495,8 @@ uint32_t getLastScanTimeFromCache() {
 
 // Read sensors and record data to the log file
 boolean recordData() {
+    blinkActivityLED();
+
     // Get the time of start for the reading
     DateTime now = RTC.now();
     uint32_t scanStart = now.unixtime();
@@ -531,6 +535,8 @@ boolean recordData() {
             // TODO Add write failure
         }
     }
+
+    blinkActivityLED();
 
     return false;
 }
@@ -730,6 +736,7 @@ void parseMessage(byte type) {
                     readField = true;
                 }
                 else {
+                    // TODO Modify this to send the bytes to software serial
                     Serial.write(readByte);
                 }
             }
