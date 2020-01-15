@@ -1,3 +1,5 @@
 
 .vscode/
 river-monitor/river-monitor.ino
+
+*.ods#

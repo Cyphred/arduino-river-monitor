@@ -224,6 +224,39 @@ void loop() {
                 updateConfig();
                 operationState = 0;
                 break;
+
+            case 142:
+                if (clearFileContents(dataLogFile))  {
+                    Serial.print(1);
+                }
+                else {
+                    Serial.print(0);
+                }
+                
+                operationState = 0;
+                break;
+
+            case 143:
+                if (clearFileContents(activityLogFile))  {
+                    Serial.print(1);
+                }
+                else {
+                    Serial.print(0);
+                }
+                
+                operationState = 0;
+                break;
+
+            case 144:
+                if (clearFileContents(smsLogFile))  {
+                    Serial.print(1);
+                }
+                else {
+                    Serial.print(0);
+                }
+                
+                operationState = 0;
+                break;
         }
     }
     // Only perform routine operations when:
@@ -906,12 +939,25 @@ boolean updateConfig() {
     return false;
 }
 
-void overwriteFile(String data, String file) {
+boolean overwriteFile(String data, String file) {
     if (sdCardReady) {
         SD.remove(file);
         openFile = SD.open(file,FILE_WRITE);
         if (openFile) {
             openFile.print(data);
+            openFile.close();
+            return true;
+        }
+    }
+    return false;
+}
+
+boolean clearFileContents(String file) {
+    if (sdCardReady) {
+        SD.remove(file);
+        openFile = SD.open(file,FILE_WRITE);
+        if (openFile) {
+            openFile.print("");
             openFile.close();
             return true;
         }
