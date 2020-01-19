@@ -226,34 +226,40 @@ void loop() {
                 break;
 
             case 142:
+                Serial.write(2);
                 if (clearFileContents(dataLogFile))  {
                     Serial.print(1);
                 }
                 else {
                     Serial.print(0);
                 }
+                Serial.write(3);
                 
                 operationState = 0;
                 break;
 
             case 143:
+                Serial.write(2);
                 if (clearFileContents(activityLogFile))  {
                     Serial.print(1);
                 }
                 else {
                     Serial.print(0);
                 }
+                Serial.write(3);
                 
                 operationState = 0;
                 break;
 
             case 144:
+                Serial.write(2);
                 if (clearFileContents(smsLogFile))  {
                     Serial.print(1);
                 }
                 else {
                     Serial.print(0);
                 }
+                Serial.write(3);
                 
                 operationState = 0;
                 break;
