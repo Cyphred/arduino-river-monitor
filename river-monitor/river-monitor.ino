@@ -1,3 +1,4 @@
+#include <SoftReset.h>
 #include <SPI.h> // For SPI Communication with the SD Card Module
 #include <SD.h> // Library for the SD Card Module
 #include "DS3231.h"
@@ -262,6 +263,10 @@ void loop() {
                 Serial.write(3);
                 
                 operationState = 0;
+                break;
+
+            case 145:
+                resetDevice();
                 break;
         }
     }
@@ -969,4 +974,8 @@ boolean clearFileContents(String file) {
         }
     }
     return false;
+}
+
+void resetDevice() {
+    soft_restart();
 }
