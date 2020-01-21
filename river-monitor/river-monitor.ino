@@ -1,8 +1,12 @@
+#include <SoftwareSerial.h> // for serial communication with the GSM Module
 #include <SoftReset.h>
 #include <SPI.h> // For SPI Communication with the SD Card Module
 #include <SD.h> // Library for the SD Card Module
 #include "DS3231.h"
 #include <DS3231.h>
+
+// GSM Module
+SoftwareSerial gsmSerial(7,8);
 
 // Flow Rate Sensor
 byte sensorInterrupt = 0;  // 0 = digital pin 2
@@ -47,7 +51,7 @@ unsigned long alertRecipient_b;   // [SETTING_ID 4] The number of recipients for
 byte scanIntervalOverride; // [SETTING_ID 5] scan interval ovverride during alert mode // TODO Add this to config file
 byte revertDuration; // [SETTING_ID 6] duration before removing alert mode
 
-boolean serialDebug = false;
+boolean serialDebug = true;
 boolean sdCardReady = false;
 boolean configFileApplied = false;
 boolean connectedToApp = false;
@@ -69,6 +73,7 @@ void setup() {
     // initialize Serial communicatioin at 2M baud rate to allow for faster data transfer rates,
     // mainly for large data sets consisting of tens of thousands of lines of data
     Serial.begin(2000000);
+    gsmSerial.begin(9600); // initialize serial communication with the GSM module
     Wire.begin();
 
     // Initialization for status LEDs
@@ -83,7 +88,6 @@ void setup() {
 
     Serial.write(128); // Tells the app that the device is ready to connect
     // wait 3 seconds for signal from app. If the signal is not received, proceed with normal operations
-    // TODO test if you can reduce this waiting time to make startup feel snappier
     timeoutStart = millis();
     while ((millis() - timeoutStart) < 3000) {
         if (Serial.available()) {
@@ -154,15 +158,7 @@ void setup() {
     digitalWrite(ledActivity,LOW);
 }
 
-boolean nothingHappens = false; //TEMP
-unsigned long lasttime = millis(); //TEMP
-
 void loop() {
-    // TEMP - This is for testing some stuff at intervals
-    if ((millis() - lasttime) > 10000) {
-        lasttime = millis();
-    }
-    // TEMP =============================================
     // if the device is connected to the app
     if (connectedToApp) {
         // if a byte arrives, read it
@@ -268,6 +264,13 @@ void loop() {
             case 145:
                 resetDevice();
                 break;
+            
+            case 146:
+                Serial.write(2);
+                Serial.print(checkGSM());
+                Serial.write(3);
+                operationState = 0;
+                break;
         }
     }
     // Only perform routine operations when:
@@ -314,11 +317,7 @@ void loop() {
         }
     }
     else {
-        // TEMP nothing happens
-        if (!nothingHappens) {
-            nothingHappens = true;
-            debugln("\n\nNothing happens now...");
-        }
+        // Nothing happens now
     }
 }
 
@@ -922,6 +921,44 @@ void getTime() {
     Serial.write(2);
     Serial.print(time);
     Serial.write(3);
+}
+
+// Queries the GSM module's status.
+// Returns 0 if there is an error
+// Returns 1 if it is active
+// Returns 2 if timed out (hardware-level error)
+int checkGSM()
+{
+    // Sends AT command to check GSM status
+    gsmSerial.print("AT\r");
+    // by default, return value will be '2' for timed out
+    int returnValue = 2;
+    // temp to temporarily store the bytes received as responses from the gsm module
+    String temp = "";
+    // The start of timeouts
+    unsigned long timeoutStart;
+
+    // Starts keeping track of time to wait for a response before timing out
+    timeoutStart = millis();
+    while (returnValue == 2 && (millis() - timeoutStart) < 5000) {
+        if (gsmSerial.available()) {
+            byte readByte = gsmSerial.read();
+            if (readByte != 10 || readByte != 13) {
+                temp += (char)readByte;
+            }
+        }
+
+        if (temp.indexOf("OK") >= 0) {
+            returnValue = 1;
+            break;
+        }
+        else if (temp.indexOf("ERROR") >= 0) {
+            returnValue = 0;
+            break;
+        }
+    }
+
+    return returnValue;
 }
 
 // End of commands for sending data to the app
