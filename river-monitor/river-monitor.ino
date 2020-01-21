@@ -279,6 +279,13 @@ void loop() {
                 operationState = 0;
                 break;
 
+            case 148:
+                Serial.write(2);
+                Serial.print(getGSMSignal());
+                Serial.write(3);
+                operationState = 0;
+                break;
+
         }
     }
     // Only perform routine operations when:
@@ -1005,6 +1012,53 @@ int checkSIM() {
         else if (temp.indexOf("ERROR") >= 0) {
             returnValue = 0;
         }
+    }
+
+    return returnValue;
+}
+
+// Gets GSM Signal Quality
+int getGSMSignal() {
+    gsmSerial.print("AT+CSQ\r");
+    int returnValue = -1;
+    String temp = "";
+    boolean responseReceived = false;
+
+    unsigned long timeoutStart = millis();
+    while (!responseReceived && (millis() - timeoutStart) < 1000) {
+        if (gsmSerial.available()) {
+            byte readByte = gsmSerial.read();
+            if (readByte != 13 && readByte != 10) {
+                temp += (char)readByte;
+            }
+        }
+
+        if (temp.length() > 2) {
+            char lastChar[] = {temp.charAt(temp.length() - 2),temp.charAt(temp.length() - 1)};
+            if (lastChar[0] == 'O') {
+                if (lastChar[1] == 'K' || lastChar[1] == 'R') {
+                    responseReceived = true;
+                }
+            }
+        }
+    }
+
+    if (responseReceived && temp.indexOf("OK") >= 0) {
+        boolean spaceFound = false;
+        String temp2 = "";
+        for (int x = 0; x < temp.length(); x++) {
+            if (spaceFound) {
+                if (temp.charAt(x) != ',') {
+                    temp2 += temp.charAt(x);
+                }
+                else {
+                    break;
+                }
+            } else if (!spaceFound && temp.charAt(x) == ' ') {
+                spaceFound = true;
+            }
+        }
+        returnValue = temp2.toInt();
     }
 
     return returnValue;
