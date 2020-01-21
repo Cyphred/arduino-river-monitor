@@ -271,6 +271,14 @@ void loop() {
                 Serial.write(3);
                 operationState = 0;
                 break;
+
+            case 147:
+                Serial.write(2);
+                Serial.print(checkSIM());
+                Serial.write(3);
+                operationState = 0;
+                break;
+
         }
     }
     // Only perform routine operations when:
@@ -955,6 +963,47 @@ int checkGSM()
         else if (temp.indexOf("ERROR") >= 0) {
             returnValue = 0;
             break;
+        }
+    }
+
+    return returnValue;
+}
+
+// Queries the GSM SIM Card status.
+// Returns 0 if there is an error
+// Returns 1 if it is active
+// Returns 2 if timed out (hardware-level error)
+int checkSIM() {
+    gsmSerial.print("AT+CPIN?\r");
+    int returnValue = 2;
+    String temp = "";
+    unsigned long timeoutStart = millis();
+    boolean responseReceived = false;
+    while (!responseReceived && (millis() - timeoutStart) < 3000) {
+        if (gsmSerial.available()) {
+            byte readByte = gsmSerial.read();
+            if (readByte != 13 && readByte != 10) {
+                temp += (char)readByte;
+            }
+        }
+
+        if (temp.length() > 2) {
+            char lastChar[] = {temp.charAt(temp.length() - 2),temp.charAt(temp.length() - 1)};
+            if (lastChar[0] == 'O') {
+                if (lastChar[1] == 'K' || lastChar[1] == 'R') {
+                    responseReceived = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (responseReceived) {
+        if (temp.indexOf("READY") >= 0) {
+            returnValue = 1;
+        }
+        else if (temp.indexOf("ERROR") >= 0) {
+            returnValue = 0;
         }
     }
 
