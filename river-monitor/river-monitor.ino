@@ -286,6 +286,42 @@ void loop() {
                 operationState = 0;
                 break;
 
+            case 149:
+                Serial.write(2);
+                if (sendSMS('A')) {
+                    Serial.print(1);
+                }
+                else {
+                    Serial.print(0);
+                }
+                Serial.write(3);
+                operationState = 0;
+                break;
+
+            case 150:
+                Serial.write(2);
+                if (sendSMS('B')) {
+                    Serial.print(1);
+                }
+                else {
+                    Serial.print(0);
+                }
+                Serial.write(3);
+                operationState = 0;
+                break;
+
+            case 151:
+                Serial.write(2);
+                if (sendSMS('C')) {
+                    Serial.print(1);
+                }
+                else {
+                    Serial.print(0);
+                }
+                Serial.write(3);
+                operationState = 0;
+                break;
+
         }
     }
     // Only perform routine operations when:
@@ -774,12 +810,8 @@ boolean setTime() {
     return true;
 }
 
-// Reads message templates and fills in fields for sending via the GSM Module
-void parseMessage(byte type) {
-    // 1 - MSGA
-    // 2 - MSGB
-    // 3 - MSGC
-    byte messageTemplate[5] = {77,83,71,(type + 64)};
+void parseMessage(char type) {
+    byte messageTemplate[5] = {77,83,71,type};
     boolean readField = false;
 
     DateTime now = RTC.now();
@@ -795,39 +827,39 @@ void parseMessage(byte type) {
                 }
                 else {
                     // TODO Modify this to send the bytes to software serial
-                    Serial.write(readByte);
+                    gsmSerial.write(readByte);
                 }
             }
             else {
                 readByte -= 64; // deduct 64 from the read byte so that the alphabet-based counting starts with 1 for letter 'A'
                 switch (readByte) {
                     case 1: // A - Date
-                        Serial.print(now.year(), DEC);
-                        Serial.write(47); // backward slash
-                        Serial.print(now.month(), DEC);
-                        Serial.write(47); // backward slash
-                        Serial.print(now.day(), DEC);
+                        gsmSerial.print(now.year(), DEC);
+                        gsmSerial.write(47); // backward slash
+                        gsmSerial.print(now.month(), DEC);
+                        gsmSerial.write(47); // backward slash
+                        gsmSerial.print(now.day(), DEC);
                         break;
                     case 2: // B - Time
-                        Serial.print(now.hour(), DEC);
-                        Serial.write(58); // colon
-                        Serial.print(now.minute(), DEC);
-                        Serial.write(58); // colon
-                        Serial.print(now.second(), DEC);
+                        gsmSerial.print(now.hour(), DEC);
+                        gsmSerial.write(58); // colon
+                        gsmSerial.print(now.minute(), DEC);
+                        gsmSerial.write(58); // colon
+                        gsmSerial.print(now.second(), DEC);
                         break;
                     case 3: // C - Depth Status
                         if (depthStatus == 0) {
-                            Serial.print(status0);
+                            gsmSerial.print(status0);
                         }
                         else if (depthStatus == 1) {
-                            Serial.print(status1);
+                            gsmSerial.print(status1);
                         }
                         else if (depthStatus == 2) {
-                            Serial.print(status2);
+                            gsmSerial.print(status2);
                         }
                     break;
                     case 4: // D - Depth
-                        Serial.print(lastDepth);
+                        gsmSerial.print(lastDepth);
                         break;
                     case 5: // E - Depth delta sign
                         // TODO Print depth delta sign
@@ -837,17 +869,17 @@ void parseMessage(byte type) {
                         break;
                     case 7: // G - Flow Rate Status
                         if (flowRateStatus == 0) {
-                            Serial.print(status0);
+                            gsmSerial.print(status0);
                         }
                         else if (flowRateStatus == 1) {
-                            Serial.print(status1);
+                            gsmSerial.print(status1);
                         }
                         else if (flowRateStatus == 2) {
-                            Serial.print(status2);
+                            gsmSerial.print(status2);
                         }
                         break;
                     case 8: // H - Flow Rate
-                        Serial.print(flowRate);
+                        gsmSerial.print(flowRate);
                         break;
                     case 9: // I - Flow Rate delta sign
                         // TODO Print flow rate delta sign
@@ -856,16 +888,16 @@ void parseMessage(byte type) {
                         // TODO Print flow rate delta
                         break;
                     case 11: // K - Error code
-                        Serial.print(lastErrorCode);
+                        gsmSerial.print(lastErrorCode);
                         break;
                     case 12: // L - Scan interval override
-                        Serial.print(scanIntervalOverride);
+                        gsmSerial.print(scanIntervalOverride);
                         break;
                     case 13: // M - Revert duration
-                        Serial.print(revertTime);
+                        gsmSerial.print(revertTime);
                         break;
                     case 14: // N - Revert time estimate
-                        Serial.print(revertDuration);
+                        gsmSerial.print(revertDuration);
                         break;
                 }
                 readField = false;
@@ -1062,6 +1094,120 @@ int getGSMSignal() {
     }
 
     return returnValue;
+}
+
+// Sends an SMS with the GSM Module. Returns true if sending is successful
+boolean sendSMS(char messageType) {
+    //message += (char)26;
+
+    unsigned long timeoutStart;
+    String temp = "";
+    boolean smsAvailable = false;
+    boolean responseReceived = false;
+
+    // AT command to set gsmSerial to SMS mode
+    gsmSerial.print("AT+CMGF=1\r");
+    timeoutStart = millis();
+
+    // waits 1 second for a response before timing out
+    while ((millis() - timeoutStart) < 1000) {
+        if (gsmSerial.available()) {
+            byte readByte = gsmSerial.read();
+            if (readByte != 13 && readByte != 10) {
+                temp += (char)readByte;
+            }
+        }
+
+        if (temp.length() > 2) {
+            char lastChar[] = {temp.charAt(temp.length() - 2),temp.charAt(temp.length() - 1)};
+            if (lastChar[0] == 'O') {
+                if (lastChar[1] == 'K' || lastChar[1] == 'R') {
+                    responseReceived = true;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // if the response is received and it contains "OK"
+    if (responseReceived && temp.indexOf("OK") >= 0) {
+        smsAvailable = true;
+    }
+
+    if (smsAvailable) {
+        // sets the recipient of the SMS
+        
+        gsmSerial.print("AT+CMGS=\"+"); 
+        gsmSerial.print(alertRecipient_a);
+        gsmSerial.print(alertRecipient_b);
+        gsmSerial.print("\"\r");
+        
+        timeoutStart = millis();
+        temp = "";
+        responseReceived = false;
+
+        while (!responseReceived && (millis() - timeoutStart) < 100) {
+            if (gsmSerial.available()) {
+                byte readByte = gsmSerial.read();
+                if (readByte != 13 && readByte != 10) {
+                    temp += (char)readByte;
+                }
+            }
+
+            if (temp.length() > 2) {
+                char lastChar[] = {temp.charAt(temp.length() - 2),temp.charAt(temp.length() - 1)};
+                if (lastChar[0] == 'O') {
+                    if (lastChar[1] == 'K' || lastChar[1] == 'R') {
+                        responseReceived = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (responseReceived) {
+            if (temp.indexOf("ERROR") >= 0) {
+                smsAvailable = false;
+            }
+        }
+
+        if (smsAvailable) {
+            // TODO Implement template reading here
+
+            parseMessage(messageType);
+            gsmSerial.print((char)26);
+
+            timeoutStart = millis();
+            temp = "";
+            responseReceived = false;
+
+            while (!responseReceived && (millis() - timeoutStart) < 5000) {
+                if (gsmSerial.available()) {
+                    byte readByte = gsmSerial.read();
+                    if (readByte != 13 && readByte != 10) {
+                        temp += (char)readByte;
+                    }
+                }
+
+                if (temp.length() > 2) {
+                    char lastChar[] = {temp.charAt(temp.length() - 2),temp.charAt(temp.length() - 1)};
+                    if (lastChar[0] == 'O') {
+                        if (lastChar[1] == 'K' || lastChar[1] == 'R') {
+                            responseReceived = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (responseReceived) {
+                if (temp.indexOf("OK") >= 0) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 // End of commands for sending data to the app
