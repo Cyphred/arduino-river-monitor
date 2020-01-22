@@ -42,6 +42,7 @@ char cacheFile[5] = {67,65,67,72}; // CACH
 char configFile[5] = {67,79,78,70}; // CONF
 char activityLogFile[4] = {65,67,84}; // ACT
 char smsLogFile[4] = {83,77,83}; // SMS
+char lastScanCache[4] = {76,65,83,84}; // LAST
 
 // Variables to be set by config file to be read from the SD Card
 byte scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
@@ -139,8 +140,8 @@ void setup() {
         }
     }
 
-    // if the config file is applied, check the size of the data log file
-    if (configFileApplied) {
+    if (sdCardReady) {
+        // check the size of the data log file
         boolean logSizeExists = false;
         // if the log file exists
         if (SD.exists(dataLogFile)) {
@@ -164,6 +165,19 @@ void setup() {
         // if the log size cache doesn't exist, create it now
         else {
             writeToFile(logSize + "",dataLogSizeCache);
+        }
+
+        // if the last scan time cache exists, get data from it
+        lastScan = 0;
+        if (SD.exists(lastScanCache)) {
+            openFile = SD.open(lastScanCache);
+            if (openFile) {
+                while (openFile.available()) {
+                    lastScan *= 0;
+                    lastScan += (openFile.read() - 48);
+                }
+                openFile.close();
+            }
         }
     }
 
@@ -662,8 +676,12 @@ boolean recordData() {
     for (int x = 0; x < 5; x++) {
         if (writeToFile(logEntry, dataLogFile)) {
             // TODO Add write success
+            // Update log size cache
             logSize++;
             overwriteFile(logSize + "", dataLogSizeCache);
+
+            // Update last scan time cache
+            overwriteFile(scanStart + "/" + lastScan, lastScanCache);
             return true;
         }
         else {
