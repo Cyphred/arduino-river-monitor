@@ -37,6 +37,7 @@ int ledConnected = A0;
 const int sdPin = 4; // CS Pin of SD Card Module
 File openFile;
 char dataLogFile[5] = {68,65,84,65}; // DATA
+char dataLogSizeCache[5] = {83,73,90,69}; // SIZE
 char cacheFile[5] = {67,65,67,72}; // CACH
 char configFile[5] = {67,79,78,70}; // CONF
 char activityLogFile[4] = {65,67,84}; // ACT
@@ -68,6 +69,8 @@ long revertTime;
 String status0 = "OK";
 String status1 = "ABOVE NORMAL";
 String status2 = "CRITICAL";
+uint32_t logSize;
+boolean logSizeLoaded = false;
 
 void setup() {
     // initialize Serial communicatioin at 2M baud rate to allow for faster data transfer rates,
@@ -116,19 +119,51 @@ void setup() {
     attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
 
     // Initializes and checks if the SD is ready for use
+    // if the SD card is not ready
     if (!SD.begin(sdPin)) {
         sdCardReady = false;
         debugln("SD not ready");
     }
+    // if the SD card is ready
     else {
         sdCardReady = true;
         debugln("SD Ready");
+
+        // if the config file has been applied
         if (applyConfigFile()) {
             configFileApplied = true;
             debugln("Config Applied");
         }
         else {
             debugln("Config not Applied");
+        }
+    }
+
+    // if the config file is applied, check the size of the data log file
+    if (configFileApplied) {
+        boolean logSizeExists = false;
+        // if the log file exists
+        if (SD.exists(dataLogFile)) {
+            logSize = getLogSizeFromDataLogs();
+            logSizeExists = true;
+        }
+        // if the log file does not exist
+        else {
+            logSize = 0;
+        }
+        logSizeLoaded = true;
+
+        // compare if the size from cache and the actual counted log size matches
+        // if it doesn't, update the cache file
+        if (logSizeExists) {
+            if (logSize != getLogSizeFromDataLogsFromCache()) {
+                // update the log size cache with the correct count
+                overwriteFile(logSize + "",dataLogSizeCache);
+            }
+        }
+        // if the log size cache doesn't exist, create it now
+        else {
+            writeToFile(logSize + "",dataLogSizeCache);
         }
     }
 
@@ -183,7 +218,9 @@ void loop() {
                 break;
 
             case 134:
-                getLogSize();
+                Serial.write(2);
+                Serial.print(logSize);
+                Serial.write(3);
                 operationState = 0;
                 break;
 
@@ -550,6 +587,8 @@ boolean applyConfigFile() {
             }
         }
 
+        openFile.close();
+
         // if all settings have been properly applied
         if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient_a && applied_alertRecipient_b && applied_scanIntervalOverride && applied_revertDuration) {
             return true;
@@ -623,6 +662,8 @@ boolean recordData() {
     for (int x = 0; x < 5; x++) {
         if (writeToFile(logEntry, dataLogFile)) {
             // TODO Add write success
+            logSize++;
+            overwriteFile(logSize + "", dataLogSizeCache);
             return true;
         }
         else {
@@ -903,7 +944,7 @@ void parseMessage(char type) {
                 readField = false;
             }
         }
-        
+        openFile.close();
     }
 }
 
@@ -928,8 +969,8 @@ void sendFlowRate() {
 }
 
 // Queries and sends the number of entries of the log file over serial
-void getLogSize() {
-    int lines = 0;
+uint32_t getLogSizeFromDataLogs() {
+    uint32_t lines = 0;
     openFile = SD.open(dataLogFile);
     if (openFile) {
         while(openFile.available()) {
@@ -941,9 +982,7 @@ void getLogSize() {
         openFile.close();
     }
     
-    Serial.write(2);
-    Serial.print(lines);
-    Serial.write(3);
+    return lines;
 }
 
 // TODO Document and optimize this if possible
@@ -1264,4 +1303,17 @@ boolean clearFileContents(String file) {
 
 void resetDevice() {
     soft_restart();
+}
+
+uint32_t getLogSizeFromDataLogsFromCache() {
+    uint32_t returnValue = 0;
+    openFile = SD.open(dataLogSizeCache);
+    if (openFile) {
+        while (openFile.available()) {
+            returnValue *= 10;
+            returnValue += (openFile.read() - 48);
+        }
+        openFile.close();
+    }
+    return returnValue;
 }
