@@ -190,6 +190,8 @@ void setup() {
         else {
             initializationSubCode = 3;  // Connected with problems
         }
+
+        depthSamplingCount = 5; // Set depth sampling to 5 to cut down time for the live readings every second
     }
     // if not connected to the app
     else {
@@ -206,6 +208,8 @@ void setup() {
     logActivity(0,initializationSubCode); // Logs the current startup
     digitalWrite(ledActivity,LOW);
 }
+
+unsigned long lastLiveData; // The last time a live reading was sent
 
 void loop() {
     // if the device is connected to the app
@@ -373,6 +377,22 @@ void loop() {
                 operationState = 0;
                 break;
 
+        }
+
+        if ((millis() - lastLiveData) > 1000) {
+            Serial.write(152);
+            Serial.write(2);
+            blinkActivityLED();
+
+            Serial.print(RTC.now().unixtime()); // Send the time of start for the reading
+            Serial.write(47); // Slash
+            Serial.print(checkDepth); // Send depth
+            Serial.write(47); // Slash
+            Serial.print(flowRate); // Send flow rate
+            Serial.write(3); // End stream
+
+            blinkActivityLED();
+            lastLiveData = milllis();
         }
     }
     // Only perform routine operations when:
