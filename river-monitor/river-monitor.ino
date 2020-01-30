@@ -209,8 +209,6 @@ void setup() {
     digitalWrite(ledActivity,LOW);
 }
 
-unsigned long lastLiveData; // The last time a live reading was sent
-
 void loop() {
     // if the device is connected to the app
     if (connectedToApp) {
@@ -377,22 +375,10 @@ void loop() {
                 operationState = 0;
                 break;
 
-        }
-
-        if ((millis() - lastLiveData) > 1000) {
-            Serial.write(152);
-            Serial.write(2);
-            blinkActivityLED();
-
-            Serial.print(RTC.now().unixtime()); // Send the time of start for the reading
-            Serial.write(47); // Slash
-            Serial.print(checkDepth); // Send depth
-            Serial.write(47); // Slash
-            Serial.print(flowRate); // Send flow rate
-            Serial.write(3); // End stream
-
-            blinkActivityLED();
-            lastLiveData = milllis();
+            case 152:
+                liveReading();
+                operationState = 0;
+                break;
         }
     }
     // Only perform routine operations when:
@@ -1354,4 +1340,21 @@ uint32_t getLogSizeFromDataLogsFromCache() {
         openFile.close();
     }
     return returnValue;
+}
+
+void liveReading() {
+    blinkActivityLED();
+    long depth = checkDepth();
+
+    Serial.write(2);
+    Serial.print(RTC.now().unixtime()); // Send the time of start for the reading
+    Serial.write(47); // Slash
+    Serial.print(depth); // Send depth
+    Serial.write(47); // Slash
+    Serial.print(depthOffset); // Send depth offset
+    Serial.write(47); // Slash
+    Serial.print(flowRate); // Send flow rate
+    Serial.write(3); // End stream
+
+    blinkActivityLED();
 }
