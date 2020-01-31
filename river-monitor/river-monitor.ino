@@ -45,15 +45,19 @@ char smsLogFile[4] = {83,77,83}; // SMS
 char lastScanCache[4] = {76,65,83,84}; // LAST
 
 // Variables to be set by config file to be read from the SD Card
-byte scanInterval;         // [SETTING_ID 0] Time in between scans in seconds
-long depthOffset;         // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
-byte depthSamplingCount;   // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
-unsigned long alertRecipient_a;   // [SETTING_ID 3] The number of recipients for alerts and status updates
-unsigned long alertRecipient_b;   // [SETTING_ID 4] The number of recipients for alerts and status updates
-byte scanIntervalOverride; // [SETTING_ID 5] scan interval ovverride during alert mode // TODO Add this to config file
-byte revertDuration; // [SETTING_ID 6] duration before removing alert mode
+byte scanInterval;                          // [SETTING_ID 0] Time in between scans in seconds
+long depthOffset;                           // [SETTING_ID 1] CM distance of the ultrasonic sensor from the bottom of the body of water
+byte depthSamplingCount;                    // [SETTING_ID 2] The number of depth samples taken in one scan. One sample is 100 ms, so by default, 50 samples will take 5 seconds to measure
+unsigned long alertRecipient_a;             // [SETTING_ID 3] The number of recipients for alerts and status updates
+unsigned long alertRecipient_b;             // [SETTING_ID 4] The number of recipients for alerts and status updates
+byte scanIntervalOverride;                  // [SETTING_ID 5] scan interval ovverride during alert mode // TODO Add this to config file
+byte revertDuration;                        // [SETTING_ID 6] duration before removing alert mode
+byte depthLevels;                           // [SETTING_ID 7] The number of levels of depth
+long levelMeasurements[5] = {0,0,0,0,0};    // [SETTING_ID 7] level levelMeasurements
+byte alertLevelTrigger;                     // [SETTING_ID 8] the water level that will trigger alert mode
+boolean sendReportOnLevelShift;             // [SETTING_ID 9] determines if a report will be sent when there is a shift in water level
 
-boolean serialDebug = true;
+boolean serialDebug = false;
 boolean sdCardReady = false;
 boolean configFileApplied = false;
 boolean connectedToApp = false;
