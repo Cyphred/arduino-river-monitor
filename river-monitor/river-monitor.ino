@@ -53,9 +53,9 @@ unsigned long alertRecipient_b;             // [SETTING_ID 4] The number of reci
 byte scanIntervalOverride;                  // [SETTING_ID 5] scan interval ovverride during alert mode // TODO Add this to config file
 byte revertDuration;                        // [SETTING_ID 6] duration before removing alert mode
 byte depthLevels;                           // [SETTING_ID 7] The number of levels of depth
-long levelMeasurements[5] = {0,0,0,0,0};    // [SETTING_ID 7] level levelMeasurements
-byte alertLevelTrigger;                     // [SETTING_ID 8] the water level that will trigger alert mode
-boolean sendReportOnLevelShift;             // [SETTING_ID 9] determines if a report will be sent when there is a shift in water level
+long levelMeasurements[5] = {0,0,0,0,0};    // [SETTING_ID 8 to 12] level levelMeasurements
+byte alertLevelTrigger;                     // [SETTING_ID 13] the water level that will trigger alert mode
+boolean sendReportOnLevelShift;             // [SETTING_ID 14] determines if a report will be sent when there is a shift in water level
 
 boolean serialDebug = false;
 boolean sdCardReady = false;
@@ -546,7 +546,10 @@ boolean applyConfigFile() {
     /*
     * The config file is now formatted as a single line with each value separated with a slash (character decimal 47)
     * and are laid out in the following order:
-    * Scan Interval / Depth Offset / Depth Sampling Count / Alert phone numbers
+    * 
+    * Scan Interval / Depth Offset / Depth Sampling Count / Recipient A / Recipient B /
+    * Scan Interval Override / Alert Revert Duration / Water Levels / Level 1 / Level 2 /
+    * Level 3 / Level 4 / Level 5 / Trigger alert on Level / Send report on level shift
     */
 
     boolean applied_scanInterval = false;
@@ -556,6 +559,10 @@ boolean applyConfigFile() {
     boolean applied_alertRecipient_b = false;
     boolean applied_scanIntervalOverride = false;
     boolean applied_revertDuration = false;
+    boolean applied_depthLevels = false;
+    boolean applied_levelMeasurements = false;
+    boolean applied_alertLevelTrigger = false;
+    boolean applied_sendReportOnLevelShift = false;
 
     // Opens the configuration file
     openFile = SD.open(configFile);
@@ -599,6 +606,40 @@ boolean applyConfigFile() {
                     case 6:
                         revertDuration = currentValue;
                         applied_revertDuration = true;
+                        break;
+                    case 7:
+                        depthLevels = currentValue;
+                        applied_depthLevels = true;
+                        break;
+                    case 8:
+                        levelMeasurements[0] = currentValue;
+                        break;
+                    case 9:
+                        levelMeasurements[1] = currentValue;
+                        break;
+                    case 10:
+                        levelMeasurements[2] = currentValue;
+                        break;
+                    case 11:
+                        levelMeasurements[3] = currentValue;
+                        break;
+                    case 12:
+                        levelMeasurements[4] = currentValue;
+                        applied_levelMeasurements = true;
+                        break;
+                    case 13:
+                        alertLevelTrigger = currentValue;
+                        applied_alertLevelTrigger = true;
+                        break;
+                    case 14:
+                        if (currentValue == 0) {
+                            sendReportOnLevelShift = false;
+                            applied_sendReportOnLevelShift = true;
+                        }
+                        else if (currentValue == 1) {
+                            sendReportOnLevelShift = true;
+                            applied_sendReportOnLevelShift = true;
+                        }
                         break;
                 }
 
