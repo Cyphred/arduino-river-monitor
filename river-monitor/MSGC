@@ -4,7 +4,6 @@ $A $B
 
 One or more alert parameters have been exceeded.
 Device has been put on alert mode.
-Scan interval duration will be overriden to $L seconds, if it is not already shorter.
 
-Current Depth: $D cm
+Current Depth: Level $C ($D cm)
 Current Flow Rate: $H L/min

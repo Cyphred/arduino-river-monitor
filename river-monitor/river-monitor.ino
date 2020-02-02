@@ -20,7 +20,6 @@ unsigned long oldFlowRateMeasureTime;
 // Ultrasonic Sensor
 const int pingPin = 6;  // Trigger Pin of Ultrasonic Sensor
 const int echoPin = 5;  // Echo Pin of Ultrasonic Sensor
-long lastDepth;
 
 // RTC Module
 RTClib RTC;
@@ -71,14 +70,8 @@ unsigned long timeoutStart;
 byte operationState = 0;
 
 // TODO Sort these out
-boolean alertMode = false;
-byte depthStatus = 0;
-byte flowRateStatus = 0;
 byte lastErrorCode = 0;
 long revertTime;
-String status0 = "OK";
-String status1 = "ABOVE NORMAL";
-String status2 = "CRITICAL";
 uint32_t logSize;
 boolean logSizeLoaded = false;
 
@@ -132,20 +125,20 @@ void setup() {
     // if the SD card is not ready
     if (!SD.begin(sdPin)) {
         sdCardReady = false;
-        debugln("SD not ready");
+        debugln("SDER");
     }
     // if the SD card is ready
     else {
         sdCardReady = true;
-        debugln("SD Ready");
+        debugln("SDOK");
 
         // if the config file has been applied
         if (applyConfigFile()) {
             configFileApplied = true;
-            debugln("Config Applied");
+            debugln("CFOK");
         }
         else {
-            debugln("Config not Applied");
+            debugln("CFER");
         }
     }
 
@@ -423,9 +416,7 @@ void loop() {
 
         DateTime now = RTC.now();
         if ((now.unixtime() - lastScan) >= scanInterval) {
-            if (!recordData()) {
-                suspendOperations();
-            }
+            recordData();
             lastScan = now.unixtime();
         }
     }
@@ -512,34 +503,6 @@ long checkDepth() {
 
     lastDepth = returnValue;
     return returnValue;
-}
-
-// Writes a string to a file
-boolean writeToFile(String data, String file) {
-    debug("Writing \"");
-    debug(data);
-    debug("\" to \"");
-    debug(file);
-    debug("\"... ");
-
-    // only run if the SD card is properly initialized
-    if (sdCardReady) {
-        openFile = SD.open(file, FILE_WRITE);
-        // if the file is successfully opened
-        if (openFile) {
-            openFile.println(data);
-            openFile.close();
-            debugln("Success!");
-            return true;
-        }
-        // if the file can't be opened
-        else {
-            debugln("Failed! - Can't open file!");
-            return false;
-        }
-    }
-    debugln("Failed! - SD not ready");
-    return false;
 }
 
 // Writes a lot of data to a file
@@ -736,85 +699,79 @@ uint32_t getLastScanTimeFromCache() {
 // Read sensors and record data to the log file
 boolean recordData() {
     blinkActivityLED();
+    if (sdCardReady) {
+        openFile = SD.open(dataLogFile);
+        if (openFile) {
+            // Get the time of start for the reading
+            DateTime now = RTC.now();
+            uint32_t scanStart = now.unixtime();
 
-    // Get the time of start for the reading
-    DateTime now = RTC.now();
-    uint32_t scanStart = now.unixtime();
+            lastDepth = checkDepth(); // Get the current depth
 
-    lastDepth = checkDepth(); // Get the current depth
+            // Keep track of when the depth scan finished
+            now = RTC.now();
+            lastScan = now.unixtime();
+            
+            // The format will be the following with '/' as a column separator:
+            // Time Start / Time End / Flow Rate / Depth
 
-    // Keep track of when the depth scan finished
-    now = RTC.now();
-    lastScan = now.unixtime();
-    
-    // DATA.LOG Entries will first be collected and formatted into String logEntry.
-    // The format will be the following with '/' as a column separator:
-    // Time Start / Time End / Flow Rate / Depth
-    String logEntry;
-    boolean validData = false;
+            openFile.print(now.unixtime());
+            openFile.write(47); // backslash
+            openFile.print(lastScan);
+            openFile.write(47); // backslash
+            openFile.print(scanInterval);
+            openFile.write(47); // backslash
+            openFile.print(flowRate);
+            openFile.write(47); // backslash
+            openFile.print(lastDepth);
+            openFile.write(47); // backslash
+            openFile.println(depthOffset);
 
-    logEntry += scanStart;
-    logEntry += char(47);
-    logEntry += lastScan;
-    logEntry += char(47);
-    logEntry += scanInterval;
-    logEntry += char(47);
-    logEntry += flowRate;
-    logEntry += char(47);
-    logEntry += lastDepth;
-    logEntry += char(47);
-    logEntry += depthOffset;
-
-    // try to write 5 times. If it fails all 5, abort the write
-    for (int x = 0; x < 5; x++) {
-        if (writeToFile(logEntry, dataLogFile)) {
-            // TODO Add write success
-            // Update log size
+            // Increment log size
             logSize++;
 
-            // Update last scan time cache
-            overwriteFile(scanStart + "/" + lastScan, lastScanCache);
-            return true;
-        }
-        else {
-            // TODO Add write failure
-        }
-    }
+            // Close the data log file, delete and recreate the last scan cache file
+            openFile.close();
+            SD.remove(lastScanCache);
+            openFile = SD.open(lastScanCache, FILE_WRITE);
+            if (openFile) {
+                openFile.print(scanStart);
+                openFile.write(47); // backslash
+                openFile.print(lastScan);
+                openFile.close();
+            }
 
-    // if it isn't in alert mode yet, check if it should be
-    if (!alertMode) {
-        if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
-            alertMode = true;
-        }
-    }
+            // if it isn't in alert mode yet, check if it should be
+            if (!alertMode) {
+                if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                    alertMode = true;
+                    swapScanIntervals();
+                }
+            }
 
-    // if it is already in alert mode
-    if (alertMode) {
-        // check if alert time should be refreshed
-        if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
-            alertTime = millis();
-        }
-
-        // check if the revert duration has been reached
-        // if true, remove alert status
-        if ((millis() - alertTime) >= (revertDuration * 1000)) {
-            alertMode = false;
-        }
-    }
-
-    // test if there is a change in level category
-    if (checkLevelStatus(lastDepth) != lastLevel) {
-        // send a report on level shift if it is specified in the config file
-        if (sendReportOnLevelShift) {
+            // if it is already in alert mode
             if (alertMode) {
-                sendSMS('C'); // Send an alert notification
+                // check if alert time should be refreshed
+                if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                    alertTime = millis();
+                }
+
+                // check if the revert duration has been reached
+                // if true, remove alert status
+                if ((millis() - alertTime) >= (revertDuration * 1000)) {
+                    alertMode = false;
+                    swapScanIntervals();
+                }
+                else {
+                    sendSMS('C'); // Send alert SMS
+                }
             }
-            else {
-                sendSMS('A'); // Send a basic report
+            else if (lastLevel != checkLevelStatus(lastDepth)) {
+                lastLevel = checkLevelStatus(lastDepth);
+                sendSMS('A');
             }
         }
     }
-
     blinkActivityLED();
     return false;
 }
@@ -827,13 +784,17 @@ void pulseCounter() {
 
 // Records activity to activity log file
 void logActivity(byte code, byte subcode) {
-    DateTime now = RTC.now();
-    String activityLogEntry = (String)now.unixtime();
-    activityLogEntry += (char)47;
-    activityLogEntry += code;
-    activityLogEntry += (char)58;
-    activityLogEntry += subcode;
-    writeToFile(activityLogEntry,activityLogFile);
+    if (sdCardReady) {
+        openFile = SD.open(activityLogFile, FILE_WRITE);
+        if (openFile) {
+            openFile.print(RTC.now().unixtime());
+            openFile.write(47); // backslash
+            openFile.print(code);
+            openFile.write(58); // colon
+            openFile.println(subcode);
+            openFile.close();
+        }
+    }
 }
 
 // TEMP Remove these when you're done
@@ -1032,15 +993,7 @@ void parseMessage(char type) {
                         gsmSerial.print(now.second(), DEC);
                         break;
                     case 3: // C - Depth Status
-                        if (depthStatus == 0) {
-                            gsmSerial.print(status0);
-                        }
-                        else if (depthStatus == 1) {
-                            gsmSerial.print(status1);
-                        }
-                        else if (depthStatus == 2) {
-                            gsmSerial.print(status2);
-                        }
+                        gsmSerial.print(lastLevel);
                     break;
                     case 4: // D - Depth
                         gsmSerial.print(lastDepth);
@@ -1052,16 +1005,6 @@ void parseMessage(char type) {
                         // TODO Print depth delta
                         break;
                     case 7: // G - Flow Rate Status
-                        if (flowRateStatus == 0) {
-                            gsmSerial.print(status0);
-                        }
-                        else if (flowRateStatus == 1) {
-                            gsmSerial.print(status1);
-                        }
-                        else if (flowRateStatus == 2) {
-                            gsmSerial.print(status2);
-                        }
-                        break;
                     case 8: // H - Flow Rate
                         gsmSerial.print(flowRate);
                         break;
@@ -1537,4 +1480,10 @@ byte checkLevelStatus(long depth) {
     else {
         return 1;
     }
+}
+
+void swapScanIntervals() {
+    byte temp = scanInterval;
+    scanInterval = scanIntervalOverride;
+    scanIntervalOverride = temp;
 }

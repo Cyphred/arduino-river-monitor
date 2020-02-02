@@ -2,5 +2,5 @@ ARDUINO RIVER MONITOR
 [REPORT]
 $A $B
 
-Current Depth: $D cm
+Current Depth: Level $C ($D cm)
 Current Flow Rate: $H L/min
