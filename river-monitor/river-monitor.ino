@@ -372,6 +372,18 @@ void loop() {
                 liveReading();
                 operationState = 0;
                 break;
+
+            case 153:
+                Serial.write(2);
+                if (alertMode) {
+                    Serial.print(1);
+                }
+                else {
+                    Serial.print(0);
+                }
+                Serial.write(3);
+                operationState = 0;
+                break;
         }
     }
     // Only perform routine operations when:
