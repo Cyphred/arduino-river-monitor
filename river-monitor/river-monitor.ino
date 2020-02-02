@@ -700,22 +700,24 @@ uint32_t getLastScanTimeFromCache() {
 boolean recordData() {
     blinkActivityLED();
     if (sdCardReady) {
-        openFile = SD.open(dataLogFile);
+        // Get the time of start for the reading
+        DateTime now = RTC.now();
+        uint32_t scanStart = now.unixtime();
+
+        lastDepth = checkDepth(); // Get the current depth
+
+        // Keep track of when the depth scan finished
+        now = RTC.now();
+        lastScan = now.unixtime();
+
+        boolean logIncremented = false;
+
+        openFile = SD.open(dataLogFile, FILE_WRITE);
         if (openFile) {
-            // Get the time of start for the reading
-            DateTime now = RTC.now();
-            uint32_t scanStart = now.unixtime();
-
-            lastDepth = checkDepth(); // Get the current depth
-
-            // Keep track of when the depth scan finished
-            now = RTC.now();
-            lastScan = now.unixtime();
-            
             // The format will be the following with '/' as a column separator:
             // Time Start / Time End / Flow Rate / Depth
 
-            openFile.print(now.unixtime());
+            openFile.print(scanStart);
             openFile.write(47); // backslash
             openFile.print(lastScan);
             openFile.write(47); // backslash
@@ -729,9 +731,12 @@ boolean recordData() {
 
             // Increment log size
             logSize++;
-
-            // Close the data log file, delete and recreate the last scan cache file
+            logIncremented = true;
             openFile.close();
+        }
+
+        // if the log file was incremented
+        if (logIncremented) {
             SD.remove(lastScanCache);
             openFile = SD.open(lastScanCache, FILE_WRITE);
             if (openFile) {
@@ -771,6 +776,7 @@ boolean recordData() {
                 sendSMS('A');
             }
         }
+        
     }
     blinkActivityLED();
     return false;
