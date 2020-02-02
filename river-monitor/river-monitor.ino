@@ -752,9 +752,8 @@ boolean recordData() {
     for (int x = 0; x < 5; x++) {
         if (writeToFile(logEntry, dataLogFile)) {
             // TODO Add write success
-            // Update log size cache
+            // Update log size
             logSize++;
-            overwriteFile(logSize + "", dataLogSizeCache);
 
             // Update last scan time cache
             overwriteFile(scanStart + "/" + lastScan, lastScanCache);
@@ -1407,19 +1406,6 @@ boolean clearFileContents(String file) {
 
 void resetDevice() {
     soft_restart();
-}
-
-uint32_t getLogSizeFromDataLogsFromCache() {
-    uint32_t returnValue = 0;
-    openFile = SD.open(dataLogSizeCache);
-    if (openFile) {
-        while (openFile.available()) {
-            returnValue *= 10;
-            returnValue += (openFile.read() - 48);
-        }
-        openFile.close();
-    }
-    return returnValue;
 }
 
 void liveReading() {
