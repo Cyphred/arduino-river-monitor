@@ -61,6 +61,11 @@ boolean serialDebug = false;
 boolean sdCardReady = false;
 boolean configFileApplied = false;
 boolean connectedToApp = false;
+boolean alertMode = false;
+unsigned long alertTime;
+
+long lastDepth;
+byte lastLevel;
 
 unsigned long timeoutStart;
 byte operationState = 0;
@@ -724,7 +729,7 @@ boolean recordData() {
     DateTime now = RTC.now();
     uint32_t scanStart = now.unixtime();
 
-    long depth = checkDepth(); // Get the current depth
+    lastDepth = checkDepth(); // Get the current depth
 
     // Keep track of when the depth scan finished
     now = RTC.now();
@@ -744,7 +749,7 @@ boolean recordData() {
     logEntry += char(47);
     logEntry += flowRate;
     logEntry += char(47);
-    logEntry += depth;
+    logEntry += lastDepth;
     logEntry += char(47);
     logEntry += depthOffset;
 
@@ -764,8 +769,41 @@ boolean recordData() {
         }
     }
 
-    blinkActivityLED();
+    // if it isn't in alert mode yet, check if it should be
+    if (!alertMode) {
+        if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+            alertMode = true;
+        }
+    }
 
+    // if it is already in alert mode
+    if (alertMode) {
+        // check if alert time should be refreshed
+        if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+            alertTime = millis();
+        }
+
+        // check if the revert duration has been reached
+        // if true, remove alert status
+        if ((millis() - alertTime) >= (revertDuration * 1000)) {
+            alertMode = false;
+        }
+    }
+
+    // test if there is a change in level category
+    if (checkLevelStatus(lastDepth) != lastLevel) {
+        // send a report on level shift if it is specified in the config file
+        if (sendReportOnLevelShift) {
+            if (alertMode) {
+                sendSMS('C'); // Send an alert notification
+            }
+            else {
+                sendSMS('A'); // Send a basic report
+            }
+        }
+    }
+
+    blinkActivityLED();
     return false;
 }
 
@@ -1106,8 +1144,7 @@ void getTime() {
 // Returns 0 if there is an error
 // Returns 1 if it is active
 // Returns 2 if timed out (hardware-level error)
-int checkGSM()
-{
+int checkGSM() {
     // Sends AT command to check GSM status
     gsmSerial.print("AT\r");
     // by default, return value will be '2' for timed out
@@ -1423,4 +1460,69 @@ void liveReading() {
     Serial.write(3); // End stream
 
     blinkActivityLED();
+}
+
+byte checkLevelStatus(long depth) {
+    // If there are 5 specified depth levels
+    if (depthLevels == 5) {
+        // If the depth is above a level
+        if (depth >= levelMeasurements[4]) {
+            return 5;
+        }
+        else if (depth >= levelMeasurements[3]) {
+            return 4;
+        }
+        else if (depth >= levelMeasurements[2]) {
+            return 3;
+        }
+        else if (depth >= levelMeasurements[1]) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    // If there are 4 specified depth levels
+    else if (depthLevels == 4) {
+        // If the depth is above a level
+        if (depth >= levelMeasurements[3]) {
+            return 4;
+        }
+        else if (depth >= levelMeasurements[2]) {
+            return 3;
+        }
+        else if (depth >= levelMeasurements[1]) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    // If there are 3 specified depth levels
+    else if (depthLevels == 3) {
+        // If the depth is above a level
+        if (depth >= levelMeasurements[2]) {
+            return 3;
+        }
+        else if (depth >= levelMeasurements[1]) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    // If there are 2 specified depth levels
+    else if (depthLevels == 2) {
+        // If the depth is above a level
+        if (depth >= levelMeasurements[1]) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    // If there is 1 specified depth level
+    else {
+        return 1;
+    }
 }
