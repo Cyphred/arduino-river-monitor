@@ -541,6 +541,47 @@ boolean writeToFile(String data, String file) {
     return false;
 }
 
+// Writes a lot of data to a file
+void writeByteStreamToFile(String file, unsigned long timeout) {
+    // Create a new config file
+    openFile = SD.open(configFile,FILE_WRITE);
+
+    if (openFile) {
+        // start timeout
+        timeoutStart = millis();
+        byte byteStreamState = 0;
+
+        // wait for the config data for specified time before timing out and cancelling
+        while ((millis() - timeoutStart) < timeout) {
+            if (Serial.available()) {
+                // Store the incoming byte
+                byte readByte = Serial.read();
+
+                // If the byte stream hasn't started yet,
+                //and a byte stream start marker has been received
+                if (byteStreamState == 0 && readByte == 2) {
+                    byteStreamState++;
+                }
+                // If the byte stream is running
+                else if (byteStreamState == 1) {
+                    // If a byte stream end marker has been received
+                    if (readByte == 3) {
+                        // end the stream
+                        byteStreamState++;
+                        break;
+                    }
+                    // If a regular character is received
+                    else {
+                        openFile.write(readByte);
+                    }
+                }
+            }
+        }
+
+        openFile.close();
+    }
+}
+
 // Applies the settings specified in the configuration file
 boolean applyConfigFile() {
     /*
@@ -1322,10 +1363,20 @@ boolean sendSMS(char messageType) {
 
 // Overwrites the config file
 boolean updateConfig() {
+    // only runs when the SD card is ready
+    if (sdCardReady) {
+        // Delete the config file
+        SD.remove(configFile);
+        writeByteStreamToFile(configFile,1000);
+    }
+    return false;
+}
+
+boolean updateConfig_old() {
     timeoutStart = millis();
     boolean byteStreamActive = false;
     String tempBuild = "";
-    while ((millis() - timeoutStart) < 1000) {
+    while ((millis() - timeoutStart) < 3000) {
         if (Serial.available()) {
             byte readByte = Serial.read();
             if (!byteStreamActive && readByte == 2) {
