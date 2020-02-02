@@ -146,29 +146,13 @@ void setup() {
 
     if (sdCardReady) {
         // check the size of the data log file
-        boolean logSizeExists = false;
         // if the log file exists
         if (SD.exists(dataLogFile)) {
             logSize = getLogSizeFromDataLogs();
-            logSizeExists = true;
         }
         // if the log file does not exist
         else {
             logSize = 0;
-        }
-        logSizeLoaded = true;
-
-        // compare if the size from cache and the actual counted log size matches
-        // if it doesn't, update the cache file
-        if (logSizeExists) {
-            if (logSize != getLogSizeFromDataLogsFromCache()) {
-                // update the log size cache with the correct count
-                overwriteFile(logSize + "",dataLogSizeCache);
-            }
-        }
-        // if the log size cache doesn't exist, create it now
-        else {
-            writeToFile(logSize + "",dataLogSizeCache);
         }
 
         // if the last scan time cache exists, get data from it
