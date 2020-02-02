@@ -705,6 +705,7 @@ boolean recordData() {
         uint32_t scanStart = now.unixtime();
 
         lastDepth = checkDepth(); // Get the current depth
+        lastDepth = depthOffset - lastDepth;
 
         // Keep track of when the depth scan finished
         now = RTC.now();
