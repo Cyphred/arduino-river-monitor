@@ -749,7 +749,7 @@ boolean recordData() {
 
             // if it isn't in alert mode yet, check if it should be
             if (!alertMode) {
-                if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                if (checkLevelStatus(depthOffset - lastDepth) >= alertLevelTrigger) {
                     alertMode = true;
                     swapScanIntervals();
                 }
@@ -758,7 +758,7 @@ boolean recordData() {
             // if it is already in alert mode
             if (alertMode) {
                 // check if alert time should be refreshed
-                if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                if (checkLevelStatus(depthOffset - lastDepth) >= alertLevelTrigger) {
                     alertTime = millis();
                 }
 
@@ -772,8 +772,8 @@ boolean recordData() {
                     sendSMS('C'); // Send alert SMS
                 }
             }
-            else if (lastLevel != checkLevelStatus(lastDepth)) {
-                lastLevel = checkLevelStatus(lastDepth);
+            else if (lastLevel != checkLevelStatus(depthOffset - lastDepth)) {
+                lastLevel = checkLevelStatus(depthOffset - lastDepth);
                 sendSMS('A');
             }
         }
