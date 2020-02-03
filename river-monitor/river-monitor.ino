@@ -839,8 +839,55 @@ void suspendOperations() {
     sdCardReady = false;
 }
 
-// Sets the time for the RTC Module
 boolean setTime() {
+    int values[13];
+    byte stored = 0;
+    byte streamState = 0;
+    boolean timedOut = true;
+
+    timeoutStart = millis();
+    while ((millis() - timeoutStart) < 3000) {
+        if (Serial.available()) {
+            byte readByte = Serial.read();
+
+            if (streamState == 0) {
+                if (readByte == 2) {
+                    streamState++;
+                }
+            }
+            else if (streamState == 1) {
+                if (readByte == 3) {
+                    streamState++;
+                    timedOut = false;
+                    break;
+                }
+                else {
+                    values[stored] = readByte - 48;
+                    stored++;
+                }
+            }
+        }
+    }
+
+    if (!timedOut) {
+        Clock.setYear((values[0] * 10) + values[1]);
+        Clock.setMonth((values[2] * 10) + values[3]);
+        Clock.setDate((values[4] * 10) + values[5]);
+
+        Clock.setHour((values[6] * 10) + values[7]);
+        Clock.setMinute((values[8] * 10) + values[9]);
+        Clock.setSecond((values[10] * 10) + values[11]);
+
+        Clock.setDoW(values[12]);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+// Sets the time for the RTC Module
+boolean old_setTime() {
     timeoutStart = millis();
     boolean timedOut = true;
     char inputString[13];
