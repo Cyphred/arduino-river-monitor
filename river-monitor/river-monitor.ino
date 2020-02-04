@@ -57,7 +57,7 @@ byte alertLevelTrigger;                     // [SETTING_ID 13] the water level t
 boolean sendReportOnLevelShift;             // [SETTING_ID 14] determines if a report will be sent when there is a shift in water level or flow level
 
 byte flowLevels;                            // [SETTING_ID 15] number of levels for flow rate
-long FlowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
+long flowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
 byte flowLevelTrigger;                      // [SETTING_ID 21] the flow level that will trigger alert mode
 
 boolean serialDebug = false;
@@ -572,6 +572,9 @@ boolean applyConfigFile() {
     boolean applied_levelMeasurements = false;
     boolean applied_alertLevelTrigger = false;
     boolean applied_sendReportOnLevelShift = false;
+    boolean applied_flowLevels = false;
+    boolean applied_flowLevelMeasurements = false;
+    boolean applied_flowLevelTrigger = false;
 
     // Opens the configuration file
     openFile = SD.open(configFile);
@@ -649,6 +652,30 @@ boolean applyConfigFile() {
                             sendReportOnLevelShift = true;
                             applied_sendReportOnLevelShift = true;
                         }
+                        break;
+                    case 15:
+                        flowLevels = currentValue;
+                        applied_flowLevels = true;
+                        break;
+                    case 16:
+                        flowLevelMeasurements[0] = currentValue;
+                        break;
+                    case 17:
+                        flowLevelMeasurements[1] = currentValue;
+                        break;
+                    case 18:
+                        flowLevelMeasurements[2] = currentValue;
+                        break;
+                    case 19:
+                        flowLevelMeasurements[3] = currentValue;
+                        break;
+                    case 20:
+                        flowLevelMeasurements[4] = currentValue;
+                        applied_flowLevelMeasurements = true;
+                        break;
+                    case 21:
+                        flowLevelTrigger = currentValue;
+                        applied_flowLevelTrigger = true;
                         break;
                 }
 
