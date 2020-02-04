@@ -51,10 +51,14 @@ unsigned long alertRecipient_a;             // [SETTING_ID 3] The number of reci
 unsigned long alertRecipient_b;             // [SETTING_ID 4] The number of recipients for alerts and status updates
 byte scanIntervalOverride;                  // [SETTING_ID 5] scan interval ovverride during alert mode // TODO Add this to config file
 byte revertDuration;                        // [SETTING_ID 6] duration before removing alert mode
-byte depthLevels;                           // [SETTING_ID 7] The number of levels of depth
+byte depthLevels;                           // [SETTING_ID 7] number of levels for depth
 long levelMeasurements[5] = {0,0,0,0,0};    // [SETTING_ID 8 to 12] level levelMeasurements
 byte alertLevelTrigger;                     // [SETTING_ID 13] the water level that will trigger alert mode
-boolean sendReportOnLevelShift;             // [SETTING_ID 14] determines if a report will be sent when there is a shift in water level
+boolean sendReportOnLevelShift;             // [SETTING_ID 14] determines if a report will be sent when there is a shift in water level or flow level
+
+byte flowLevels;                            // [SETTING_ID 15] number of levels for flow rate
+long FlowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
+byte flowLevelTrigger;                      // [SETTING_ID 21] the flow level that will trigger alert mode
 
 boolean serialDebug = false;
 boolean sdCardReady = false;
