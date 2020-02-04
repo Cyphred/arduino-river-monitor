@@ -152,6 +152,7 @@ void setup() {
         }
         else {
             // send error message
+            sendSMS('G');
         }
     }
 
