@@ -57,7 +57,7 @@ byte alertLevelTrigger;                     // [SETTING_ID 13] the water level t
 boolean sendReportOnLevelShift;             // [SETTING_ID 14] determines if a report will be sent when there is a shift in water level or flow level
 
 byte flowLevels;                            // [SETTING_ID 15] number of levels for flow rate
-long flowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
+double flowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
 byte flowLevelTrigger;                      // [SETTING_ID 21] the flow level that will trigger alert mode
 
 boolean serialDebug = false;
@@ -1564,6 +1564,71 @@ byte checkLevelStatus(long depth) {
         }
     }
     // If there is 1 specified depth level
+    else {
+        return 1;
+    }
+}
+
+byte checkFlowLevelStatus(double flowRate) {
+    // If there are 5 specified flow levels
+    if (flowLevels == 5) {
+        // If the depth is above a level
+        if (flowRate >= flowLevelMeasurements[4]) {
+            return 5;
+        }
+        else if (flowRate >= flowLevelMeasurements[3]) {
+            return 4;
+        }
+        else if (flowRate >= flowLevelMeasurements[2]) {
+            return 3;
+        }
+        else if (flowRate >= flowLevelMeasurements[1]) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    // If there are 4 specified flow levels
+    else if (flowLevels == 4) {
+        // If the depth is above a level
+        if (flowRate >= flowLevelMeasurements[3]) {
+            return 4;
+        }
+        else if (flowRate >= flowLevelMeasurements[2]) {
+            return 3;
+        }
+        else if (flowRate >= flowLevelMeasurements[1]) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    // If there are 3 specified flow levels
+    else if (flowLevels == 3) {
+        // If the depth is above a level
+        if (flowRate >= flowLevelMeasurements[2]) {
+            return 3;
+        }
+        else if (flowRate >= flowLevelMeasurements[1]) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    // If there are 2 specified flow levels
+    else if (flowLevels == 2) {
+        // If the depth is above a level
+        if (flowRate >= flowLevelMeasurements[1]) {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+    // If there is 1 specified flow level
     else {
         return 1;
     }
