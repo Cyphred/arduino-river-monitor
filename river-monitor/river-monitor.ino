@@ -57,7 +57,7 @@ byte alertLevelTrigger;                     // [SETTING_ID 13] the water level t
 boolean sendReportOnLevelShift;             // [SETTING_ID 14] determines if a report will be sent when there is a shift in water level or flow level
 
 byte flowLevels;                            // [SETTING_ID 15] number of levels for flow rate
-double flowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
+float flowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
 byte flowLevelTrigger;                      // [SETTING_ID 21] the flow level that will trigger alert mode
 
 boolean serialDebug = false;
@@ -1099,28 +1099,28 @@ void parseMessage(char type) {
                         gsmSerial.write(58); // colon
                         gsmSerial.print(now.second(), DEC);
                         break;
-                    case 3: // C - Depth Status
+                    case 3: // C - Depth Level
                         gsmSerial.print(lastLevel);
                     break;
                     case 4: // D - Depth
                         gsmSerial.print(lastDepth);
                         break;
-                    case 5: // E - Depth delta sign
-                        // TODO Print depth delta sign
+                    case 5: // E - Depth danger level
+                        gsmSerial.print(alertLevelTrigger);
                         break;
-                    case 6: // F - Depth delta percentage
-                        // TODO Print depth delta
+                    case 6: // F - Depth danger measurement
+                        gsmSerial.print(levelMeasurements[alertLevelTrigger - 1]);
                         break;
-                    case 7: // G - Flow Rate Status
+                    case 7: // G - Flow Rate Level
                         gsmSerial.print(lastFlowLevel);
                     case 8: // H - Flow Rate
                         gsmSerial.print(flowRate);
                         break;
-                    case 9: // I - Flow Rate delta sign
-                        // TODO Print flow rate delta sign
+                    case 9: // I - Flow Rate danger level
+                        gsmSerial.print(flowLevelTrigger);
                         break;
-                    case 10: // J - Flow Rate percentage
-                        // TODO Print flow rate delta
+                    case 10: // J - Flow Rate danger measurement
+                        gsmSerial.print(flowLevelMeasurements[flowLevelTrigger - 1]);
                         break;
                     case 11: // K - Error code
                         gsmSerial.print(lastErrorCode);
