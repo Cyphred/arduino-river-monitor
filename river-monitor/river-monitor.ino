@@ -201,6 +201,33 @@ void setup() {
 }
 
 void loop() {
+    // Measures the flow rate every second regardless of connection status
+    if ((millis() - oldFlowRateMeasureTime) > 1000) {
+        delay(100);
+
+        // Disable the interrupt while calculating flow rate and sending the value to the host
+        detachInterrupt(sensorInterrupt);
+            
+        // Because this loop may not complete in exactly 1 second intervals we calculate
+        // the number of milliseconds that have passed since the last execution and use
+        // that to scale the output. We also apply the calibrationFactor to scale the output
+        // based on the number of pulses per second per units of measure (litres/minute in
+        // this case) coming from the sensor.
+        flowRate = ((1000.0 / (millis() - oldFlowRateMeasureTime)) * pulseCount) / calibrationFactor;
+        
+        // Note the time this processing pass was executed. Note that because we've
+        // disabled interrupts the millis() function won't actually be incrementing right
+        // at this point, but it will still return the value it was set to just before
+        // interrupts went away.
+        oldFlowRateMeasureTime = millis();
+        
+        // Reset the pulse counter so we can start incrementing again
+        pulseCount = 0;
+        
+        // Enable the interrupt again now that we've finished sending output
+        attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+    }
+    
     // if the device is connected to the app
     if (connectedToApp) {
         // if a byte arrives, read it
@@ -391,34 +418,6 @@ void loop() {
     // Otherwise, do nothing
     // TODO or maybe, make it send alerts to the alert recipient about the malfunction
     else if (!connectedToApp && sdCardReady && configFileApplied) {
-        
-        // Measures the flow rate every second
-        if ((millis() - oldFlowRateMeasureTime) > 1000) {
-            delay(100);
-
-            // Disable the interrupt while calculating flow rate and sending the value to the host
-            detachInterrupt(sensorInterrupt);
-                
-            // Because this loop may not complete in exactly 1 second intervals we calculate
-            // the number of milliseconds that have passed since the last execution and use
-            // that to scale the output. We also apply the calibrationFactor to scale the output
-            // based on the number of pulses per second per units of measure (litres/minute in
-            // this case) coming from the sensor.
-            flowRate = ((1000.0 / (millis() - oldFlowRateMeasureTime)) * pulseCount) / calibrationFactor;
-            
-            // Note the time this processing pass was executed. Note that because we've
-            // disabled interrupts the millis() function won't actually be incrementing right
-            // at this point, but it will still return the value it was set to just before
-            // interrupts went away.
-            oldFlowRateMeasureTime = millis();
-            
-            // Reset the pulse counter so we can start incrementing again
-            pulseCount = 0;
-            
-            // Enable the interrupt again now that we've finished sending output
-            attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
-        }
-
         DateTime now = RTC.now();
         if ((now.unixtime() - lastScan) >= scanInterval) {
             recordData();
