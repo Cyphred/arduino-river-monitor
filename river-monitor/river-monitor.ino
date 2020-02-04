@@ -781,7 +781,13 @@ boolean recordData() {
 
             // if it isn't in alert mode yet, check if it should be
             if (!alertMode) {
-                if (checkLevelStatus(depthOffset - lastDepth) >= alertLevelTrigger) {
+                // if the last depth's level is equal to or greater than the level that triggers alert mode
+                // or
+                // if the last flow rate's level is equal to or greater than the level that triggers alert mode
+                if (
+                    (checkLevelStatus(lastDepth) >= alertLevelTrigger) ||
+                    (checkFlowLevelStatus(flowRate) >= flowLevelTrigger)
+                    ) {
                     alertMode = true;
                     swapScanIntervals();
                 }
@@ -790,7 +796,10 @@ boolean recordData() {
             // if it is already in alert mode
             if (alertMode) {
                 // check if alert time should be refreshed
-                if (checkLevelStatus(depthOffset - lastDepth) >= alertLevelTrigger) {
+                if (
+                    (checkLevelStatus(lastDepth) >= alertLevelTrigger) ||
+                    (checkFlowLevelStatus(flowRate) >= flowLevelTrigger)
+                    ) {
                     alertTime = millis();
                 }
 
@@ -798,14 +807,26 @@ boolean recordData() {
                 // if true, remove alert status
                 if ((millis() - alertTime) >= (revertDuration * 1000)) {
                     alertMode = false;
+                    sendSMS('F');
                     swapScanIntervals();
                 }
                 else {
-                    sendSMS('C'); // Send alert SMS
+                    // if both flow rate and depth are at danger levels
+                    if (checkLevelStatus(lastDepth) >= alertLevelTrigger && checkFlowLevelStatus(flowRate) >= flowLevelTrigger) {
+                        sendSMS('E');
+                    }
+                    // if only flow rate is at danger levels
+                    else if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                        sendSMS('C');
+                    }
+                    // if only depth is at danger levels
+                    else if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                        sendSMS('D');
+                    }
                 }
             }
-            else if (lastLevel != checkLevelStatus(depthOffset - lastDepth)) {
-                lastLevel = checkLevelStatus(depthOffset - lastDepth);
+            else if (lastLevel != checkLevelStatus(lastDepth)) {
+                lastLevel = checkLevelStatus(lastDepth);
                 sendSMS('A');
             }
         }
@@ -1569,7 +1590,7 @@ byte checkLevelStatus(long depth) {
     }
 }
 
-byte checkFlowLevelStatus(double flowRate) {
+byte checkFlowLevelStatus(float flowRate) {
     // If there are 5 specified flow levels
     if (flowLevels == 5) {
         // If the depth is above a level

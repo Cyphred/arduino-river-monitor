@@ -1,9 +1,8 @@
 ARDUINO RIVER MONITOR
-[ALERT]
+[REPORT]
 $A $B
 
-Alert parameters for flow rate exceeded.
-Device has been put on alert mode.
+Alert status has been lifted.
 
 Current Depth: Level $C ($D cm)
 Current Flow Rate: Level $G ($H L/min)

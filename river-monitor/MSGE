@@ -2,7 +2,7 @@ ARDUINO RIVER MONITOR
 [ALERT]
 $A $B
 
-Alert parameters for flow rate exceeded.
+Alert parameters for depth and flow rate exceeded.
 Device has been put on alert mode.
 
 Current Depth: Level $C ($D cm)
