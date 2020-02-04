@@ -132,6 +132,7 @@ void setup() {
     if (!SD.begin(sdPin)) {
         sdCardReady = false;
         debugln("SDER");
+        sendSMS('H');
     }
     // if the SD card is ready
     else {
