@@ -39,6 +39,7 @@ char dataLogFile[5] = {68,65,84,65}; // DATA
 char dataLogSizeCache[5] = {83,73,90,69}; // SIZE
 char cacheFile[5] = {67,65,67,72}; // CACH
 char configFile[5] = {67,79,78,70}; // CONF
+char backupConfigFile[5] = {67,79,78,66}; // CONB
 char activityLogFile[4] = {65,67,84}; // ACT
 char smsLogFile[4] = {83,77,83}; // SMS
 char lastScanCache[4] = {76,65,83,84}; // LAST
@@ -138,12 +139,19 @@ void setup() {
         debugln("SDOK");
 
         // if the config file has been applied
-        if (applyConfigFile()) {
+        if (applyConfigFile(configFile)) {
+            copyFileContents(configFile,backupConfigFile);
+            configFileApplied = true;
+            debugln("CFOK");
+        }
+        // try applying the backup config file
+        else if (applyConfigFile(backupConfigFile)) {
+            copyFileContents(backupConfigFile,configFile);
             configFileApplied = true;
             debugln("CFOK");
         }
         else {
-            debugln("CFER");
+            // send error message
         }
     }
 
@@ -551,7 +559,7 @@ void writeByteStreamToFile(String file, unsigned long timeout) {
 }
 
 // Applies the settings specified in the configuration file
-boolean applyConfigFile() {
+boolean applyConfigFile(String selectedConfig) {
     /*
     * The config file is now formatted as a single line with each value separated with a slash (character decimal 47)
     * and are laid out in the following order:
@@ -577,7 +585,7 @@ boolean applyConfigFile() {
     boolean applied_flowLevelTrigger = false;
 
     // Opens the configuration file
-    openFile = SD.open(configFile);
+    openFile = SD.open(selectedConfig);
 
     // If the config file is successfully opened
     if (openFile) {
@@ -1658,4 +1666,29 @@ void swapScanIntervals() {
     byte temp = scanInterval;
     scanInterval = scanIntervalOverride;
     scanIntervalOverride = temp;
+}
+
+void copyFileContents(String sourceFileName, String targetFileName) {
+    // open the source file
+    File sourceFile = SD.open(sourceFileName);
+    
+    // delete the old target file
+    SD.remove(targetFileName);
+
+    // create a new target file
+    File targetFile = SD.open(targetFileName, FILE_WRITE);
+
+    // if the source file is opened
+    if (sourceFile) {
+        // if the target file is opened
+        if (targetFile) {
+            // while the source file has contents
+            while (sourceFile.available()) {
+                // write each byte of the source file to the target
+                targetFile.write(sourceFile.read());
+            }
+            targetFile.close();
+        }
+        sourceFile.close();
+    }
 }
