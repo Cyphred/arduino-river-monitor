@@ -69,6 +69,7 @@ unsigned long alertTime;
 
 long lastDepth;
 byte lastLevel;
+byte lastFlowLevel;
 
 unsigned long timeoutStart;
 byte operationState = 0;
@@ -1090,6 +1091,7 @@ void parseMessage(char type) {
                         // TODO Print depth delta
                         break;
                     case 7: // G - Flow Rate Status
+                        gsmSerial.print(lastFlowLevel);
                     case 8: // H - Flow Rate
                         gsmSerial.print(flowRate);
                         break;
