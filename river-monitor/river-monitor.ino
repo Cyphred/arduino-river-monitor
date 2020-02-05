@@ -28,8 +28,6 @@ uint32_t lastScan = 0;
 
 // Indicator LEDs
 byte activityLEDState = 0;
-byte errorLEDState = 0;
-unsigned long lastErrorBlink;
 int ledActivity = A2;
 int ledError = A1;
 int ledConnected = A0;
@@ -755,6 +753,7 @@ boolean recordData() {
 
         lastDepth = checkDepth(); // Get the current depth
         lastDepth = depthOffset - lastDepth;
+        lastLevel = checkLevelStatus(lastDepth);
 
         // Keep track of when the depth scan finished
         now = RTC.now();
@@ -809,6 +808,7 @@ boolean recordData() {
                     ) {
                     alertMode = true;
                     swapScanIntervals();
+                    digitalWrite(ledError,HIGH);
                 }
             }
 
@@ -828,6 +828,7 @@ boolean recordData() {
                     alertMode = false;
                     sendSMS('F');
                     swapScanIntervals();
+                    digitalWrite(ledError,LOW);
                 }
                 else {
                     // if both flow rate and depth are at danger levels
@@ -899,18 +900,6 @@ void blinkActivityLED() {
     else {
         activityLEDState = 0;
         digitalWrite(ledActivity,LOW);
-    }
-}
-
-// Toggles the error LED when called
-void blinkErrorLED() {
-    if (errorLEDState == 0) {
-        errorLEDState = 1;
-        digitalWrite(ledError,HIGH);
-    }
-    else {
-        errorLEDState = 0;
-        digitalWrite(ledError,LOW);
     }
 }
 
