@@ -241,6 +241,8 @@ void loop() {
         
         // Enable the interrupt again now that we've finished sending output
         attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+
+        lastFlowLevel = checkFlowLevelStatus(flowRate);
     }
     
     // if the device is connected to the app
