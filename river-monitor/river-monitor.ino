@@ -61,7 +61,7 @@ byte flowLevels;                            // [SETTING_ID 15] number of levels 
 float flowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
 byte flowLevelTrigger;                      // [SETTING_ID 21] the flow level that will trigger alert mode
 
-boolean serialDebug = true;
+boolean serialDebug = false;
 boolean sdCardReady = false;
 boolean configFileApplied = false;
 boolean connectedToApp = false;
@@ -1153,7 +1153,7 @@ void parseMessage(char type) {
                         gsmSerial.print(revertTime);
                         break;
                     case 14: // N - Revert time estimate
-                        gsmSerial.print(revertDuration);
+                        gsmSerial.print(lastFlowLevel);
                         break;
                 }
                 readField = false;
@@ -1613,20 +1613,20 @@ byte checkLevelStatus(long depth) {
     }
 }
 
-byte checkFlowLevelStatus(float flowRate) {
+byte checkFlowLevelStatus(float flow) {
     // If there are 5 specified flow levels
     if (flowLevels == 5) {
         // If the depth is above a level
-        if (flowRate >= flowLevelMeasurements[4]) {
+        if (flow >= flowLevelMeasurements[4]) {
             return 5;
         }
-        else if (flowRate >= flowLevelMeasurements[3]) {
+        else if (flow >= flowLevelMeasurements[3]) {
             return 4;
         }
-        else if (flowRate >= flowLevelMeasurements[2]) {
+        else if (flow >= flowLevelMeasurements[2]) {
             return 3;
         }
-        else if (flowRate >= flowLevelMeasurements[1]) {
+        else if (flow >= flowLevelMeasurements[1]) {
             return 2;
         }
         else {
@@ -1636,13 +1636,13 @@ byte checkFlowLevelStatus(float flowRate) {
     // If there are 4 specified flow levels
     else if (flowLevels == 4) {
         // If the depth is above a level
-        if (flowRate >= flowLevelMeasurements[3]) {
+        if (flow >= flowLevelMeasurements[3]) {
             return 4;
         }
-        else if (flowRate >= flowLevelMeasurements[2]) {
+        else if (flow >= flowLevelMeasurements[2]) {
             return 3;
         }
-        else if (flowRate >= flowLevelMeasurements[1]) {
+        else if (flow >= flowLevelMeasurements[1]) {
             return 2;
         }
         else {
@@ -1652,10 +1652,10 @@ byte checkFlowLevelStatus(float flowRate) {
     // If there are 3 specified flow levels
     else if (flowLevels == 3) {
         // If the depth is above a level
-        if (flowRate >= flowLevelMeasurements[2]) {
+        if (flow >= flowLevelMeasurements[2]) {
             return 3;
         }
-        else if (flowRate >= flowLevelMeasurements[1]) {
+        else if (flow >= flowLevelMeasurements[1]) {
             return 2;
         }
         else {
@@ -1665,7 +1665,7 @@ byte checkFlowLevelStatus(float flowRate) {
     // If there are 2 specified flow levels
     else if (flowLevels == 2) {
         // If the depth is above a level
-        if (flowRate >= flowLevelMeasurements[1]) {
+        if (flow >= flowLevelMeasurements[1]) {
             return 2;
         }
         else {
