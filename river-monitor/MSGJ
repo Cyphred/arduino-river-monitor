@@ -4,9 +4,6 @@ $A $B
 
 Device successfully initialized.
 
-Current Depth: Level $C ($D cm)
-Current Flow Rate: Level $G ($H L/min)
-
 Alert Parameters:
 Depth: Level $E ($F cm)
 Flow Rate : Level $I ($J L/min)

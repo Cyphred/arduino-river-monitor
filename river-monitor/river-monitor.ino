@@ -61,7 +61,7 @@ byte flowLevels;                            // [SETTING_ID 15] number of levels 
 float flowLevelMeasurements[5] = {0,0,0,0,0};// [SETTING_ID 16 to 20] level measurements for flow rate
 byte flowLevelTrigger;                      // [SETTING_ID 21] the flow level that will trigger alert mode
 
-boolean serialDebug = false;
+boolean serialDebug = true;
 boolean sdCardReady = false;
 boolean configFileApplied = false;
 boolean connectedToApp = false;
@@ -158,6 +158,7 @@ void setup() {
     }
 
     if (sdCardReady) {
+        debug("log:");
         // check the size of the data log file
         // if the log file exists
         if (SD.exists(dataLogFile)) {
@@ -167,8 +168,10 @@ void setup() {
         else {
             logSize = 0;
         }
+        debugln(logSize + "");
 
         // if the last scan time cache exists, get data from it
+        debug("last:");
         lastScan = 0;
         if (SD.exists(lastScanCache)) {
             openFile = SD.open(lastScanCache);
@@ -180,6 +183,7 @@ void setup() {
                 openFile.close();
             }
         }
+        debugln(lastScan + "");
     }
 
     byte initializationSubCode = 0;
@@ -821,7 +825,7 @@ boolean recordData() {
                 // if true, remove alert status
                 if ((millis() - alertTime) >= (revertDuration * 1000)) {
                     alertMode = false;
-                    sendSMS('F');
+                    sendSMS('I');
                     swapScanIntervals();
                     digitalWrite(ledError,LOW);
                 }
