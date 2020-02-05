@@ -201,6 +201,7 @@ void setup() {
         if (sdCardReady && configFileApplied) {
             digitalWrite(ledError,LOW);
             initializationSubCode = 0; // Disconnected and no problems
+            sendSMS('J');
         }
         else {
             initializationSubCode = 2;  // Disconnected with problems
@@ -211,12 +212,6 @@ void setup() {
 }
 
 void loop() {
-    // blinks red LED every 500ms when in alert mode
-    if (alertMode && (millis() - lastErrorBlink) > 500) {
-        lastErrorBlink = millis();
-        blinkErrorLED();
-    }
-
     // Measures the flow rate every second regardless of connection status
     if ((millis() - oldFlowRateMeasureTime) > 1000) {
         delay(100);
