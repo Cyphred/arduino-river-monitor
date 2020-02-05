@@ -777,6 +777,8 @@ boolean recordData() {
             openFile.close();
         }
 
+        delay(100);
+
         // if the log file was incremented
         if (logIncremented) {
             SD.remove(lastScanCache);
@@ -799,6 +801,7 @@ boolean recordData() {
                     ) {
                     alertMode = true;
                     swapScanIntervals();
+                    digitalWrite(ledError,HIGH);
                 }
             }
 
@@ -818,6 +821,7 @@ boolean recordData() {
                     alertMode = false;
                     sendSMS('F');
                     swapScanIntervals();
+                    digitalWrite(ledError,LOW);
                 }
                 else {
                     // if both flow rate and depth are at danger levels
@@ -1339,6 +1343,7 @@ int getGSMSignal() {
 
 // Sends an SMS with the GSM Module. Returns true if sending is successful
 boolean sendSMS(char messageType) {
+    digitalWrite(ledConnected,HIGH);
     //message += (char)26;
 
     unsigned long timeoutStart;
@@ -1448,6 +1453,7 @@ boolean sendSMS(char messageType) {
             }
         }
     }
+    digitalWrite(ledConnected,LOW);
     return false;
 }
 
