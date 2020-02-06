@@ -243,6 +243,12 @@ void loop() {
         attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
 
         lastFlowLevel = checkFlowLevelStatus(flowRate);
+        
+        // TODO remove these
+        Serial.print("\nFlow Rate Reading: ");
+        Serial.print(flowRate);
+        Serial.print("l/min-level");
+        Serial.println(lastFlowLevel);
     }
     
     // if the device is connected to the app
@@ -960,6 +966,7 @@ boolean setTime() {
     }
 }
 
+/*
 // Sets the time for the RTC Module
 boolean old_setTime() {
     timeoutStart = millis();
@@ -1082,6 +1089,7 @@ boolean old_setTime() {
 
     return true;
 }
+*/
 
 // Modified parseMessage method that prints to Serial monitor
 void parseMessage(char type) {
@@ -1582,6 +1590,7 @@ boolean updateConfig() {
     return false;
 }
 
+/*
 boolean updateConfig_old() {
     timeoutStart = millis();
     boolean byteStreamActive = false;
@@ -1604,6 +1613,7 @@ boolean updateConfig_old() {
     }
     return false;
 }
+*/
 
 boolean overwriteFile(String data, String file) {
     if (sdCardReady) {
