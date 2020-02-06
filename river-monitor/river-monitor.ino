@@ -1442,8 +1442,18 @@ int getGSMSignal() {
     return returnValue;
 }
 
-// Sends an SMS with the GSM Module. Returns true if sending is successful
+// Modifiend SendSMS for debugging
 boolean sendSMS(char messageType) {
+    digitalWrite(ledConnected,HIGH);
+    parseMessage(messageType);
+    digitalWrite(ledConnected,LOW);
+    return false;
+}
+
+/*
+// TODO uncomment this
+// Sends an SMS with the GSM Module. Returns true if sending is successful
+boolean old_sendSMS(char messageType) {
     digitalWrite(ledConnected,HIGH);
     //message += (char)26;
 
@@ -1557,6 +1567,7 @@ boolean sendSMS(char messageType) {
     digitalWrite(ledConnected,LOW);
     return false;
 }
+*/
 
 // End of commands for sending data to the app
 
