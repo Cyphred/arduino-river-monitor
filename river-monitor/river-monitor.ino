@@ -243,12 +243,6 @@ void loop() {
         attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
 
         lastFlowLevel = checkFlowLevelStatus(flowRate);
-        
-        // TODO remove these
-        Serial.print("\nFlow Rate Reading: ");
-        Serial.print(flowRate);
-        Serial.print("l/min-level");
-        Serial.println(lastFlowLevel);
     }
     
     // if the device is connected to the app
@@ -528,7 +522,6 @@ long checkDepth() {
         }
     }
 
-    lastDepth = returnValue;
     return returnValue;
 }
 
@@ -713,9 +706,81 @@ boolean applyConfigFile(String selectedConfig) {
 
         openFile.close();
 
+        // TODO apply this to actual logic
         // if all settings have been properly applied
-        if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient_a && applied_alertRecipient_b && applied_scanIntervalOverride && applied_revertDuration) {
-            return true;
+        if (applied_scanInterval &&
+            applied_depthOffset &&
+            applied_depthSamplingCount &&
+            applied_alertRecipient_a &&
+            applied_alertRecipient_b &&
+            applied_scanIntervalOverride &&
+            applied_revertDuration &&
+            applied_depthLevels &&
+            applied_levelMeasurements &&
+            applied_alertLevelTrigger &&
+            applied_sendReportOnLevelShift &&
+            applied_flowLevels &&
+            applied_flowLevelMeasurements &&
+            applied_flowLevelTrigger) {
+                // TODO remove this
+                Serial.print("CONFIG\n");
+
+                Serial.print("SI:");
+                Serial.println(scanInterval);
+                
+                Serial.print("DO:");
+                Serial.println(depthOffset);
+                
+                Serial.print("DSO:");
+                Serial.println(depthSamplingCount);
+                
+                Serial.print("RCP:");
+                Serial.print(alertRecipient_a);
+                Serial.println(alertRecipient_b);
+                
+                Serial.print("SIO:");
+                Serial.println(scanIntervalOverride);
+                
+                Serial.print("RD:");
+                Serial.println(revertDuration);
+
+                Serial.print("DL:");
+                Serial.println(depthLevels);
+                
+                Serial.print("DL_MS:");
+                Serial.print(levelMeasurements[0]);
+                Serial.print(',');
+                Serial.print(levelMeasurements[1]);
+                Serial.print(',');
+                Serial.print(levelMeasurements[2]);
+                Serial.print(',');
+                Serial.print(levelMeasurements[3]);
+                Serial.print(',');
+                Serial.println(levelMeasurements[4]);
+                
+                Serial.print("DL_AL:");
+                Serial.println(alertLevelTrigger);
+                
+                Serial.print("SHFRPT:");
+                Serial.println(sendReportOnLevelShift);
+                
+                Serial.print("FL:");
+                Serial.println(flowLevels);
+                
+                Serial.print("FL_MS:");
+                Serial.print(flowLevelMeasurements[0]);
+                Serial.print(',');
+                Serial.print(flowLevelMeasurements[1]);
+                Serial.print(',');
+                Serial.print(flowLevelMeasurements[2]);
+                Serial.print(',');
+                Serial.print(flowLevelMeasurements[3]);
+                Serial.print(',');
+                Serial.println(levelMeaflowLevelMeasurementssurements[4]);
+                
+                Serial.print("FL_AL:");
+                Serial.println(flowLevelTrigger);
+                return true;
         }
         else {
             return false;
@@ -761,6 +826,18 @@ boolean recordData() {
         lastDepth = checkDepth(); // Get the current depth
         lastDepth = depthOffset - lastDepth;
         lastLevel = checkLevelStatus(lastDepth);
+
+        // TODO remove these
+        Serial.print("\nDepth Reading: ");
+        Serial.print(lastDepth);
+        Serial.print("cm-level");
+        Serial.print(lastLevel);
+
+        // TODO remove these
+        Serial.print("\nFlow Rate Reading: ");
+        Serial.print(flowRate);
+        Serial.print("l/min-level");
+        Serial.println(lastFlowLevel);
 
         // Keep track of when the depth scan finished
         now = RTC.now();
