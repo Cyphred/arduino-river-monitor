@@ -71,6 +71,7 @@ unsigned long alertTime;
 long lastDepth;
 byte lastLevel;
 byte lastFlowLevel;
+byte oldLevels[2] = {1,1};
 
 unsigned long timeoutStart;
 byte operationState = 0;
@@ -229,6 +230,10 @@ void loop() {
         // based on the number of pulses per second per units of measure (litres/minute in
         // this case) coming from the sensor.
         flowRate = ((1000.0 / (millis() - oldFlowRateMeasureTime)) * pulseCount) / calibrationFactor;
+
+        if (flowRate < 0) {
+            flowRate = 0;
+        }
         
         // Note the time this processing pass was executed. Note that because we've
         // disabled interrupts the millis() function won't actually be incrementing right
@@ -522,7 +527,6 @@ long checkDepth() {
         }
     }
 
-    lastDepth = returnValue;
     return returnValue;
 }
 
@@ -706,10 +710,81 @@ boolean applyConfigFile(String selectedConfig) {
         }
 
         openFile.close();
-
         // if all settings have been properly applied
-        if (applied_scanInterval && applied_depthOffset && applied_depthSamplingCount && applied_alertRecipient_a && applied_alertRecipient_b && applied_scanIntervalOverride && applied_revertDuration) {
-            return true;
+        if (applied_scanInterval &&
+            applied_depthOffset &&
+            applied_depthSamplingCount &&
+            applied_alertRecipient_a &&
+            applied_alertRecipient_b &&
+            applied_scanIntervalOverride &&
+            applied_revertDuration &&
+            applied_depthLevels &&
+            applied_levelMeasurements &&
+            applied_alertLevelTrigger &&
+            applied_sendReportOnLevelShift &&
+            applied_flowLevels &&
+            applied_flowLevelMeasurements &&
+            applied_flowLevelTrigger) {
+                /*
+                Serial.print("CONFIG\n");
+
+                Serial.print("SI:");
+                Serial.println(scanInterval);
+                
+                Serial.print("DO:");
+                Serial.println(depthOffset);
+                
+                Serial.print("DSO:");
+                Serial.println(depthSamplingCount);
+                
+                Serial.print("RCP:");
+                Serial.print(alertRecipient_a);
+                Serial.println(alertRecipient_b);
+                
+                Serial.print("SIO:");
+                Serial.println(scanIntervalOverride);
+                
+                Serial.print("RD:");
+                Serial.println(revertDuration);
+
+                Serial.print("DL:");
+                Serial.println(depthLevels);
+                
+                Serial.print("DL_MS:");
+                Serial.print(levelMeasurements[0]);
+                Serial.print(',');
+                Serial.print(levelMeasurements[1]);
+                Serial.print(',');
+                Serial.print(levelMeasurements[2]);
+                Serial.print(',');
+                Serial.print(levelMeasurements[3]);
+                Serial.print(',');
+                Serial.println(levelMeasurements[4]);
+                
+                Serial.print("DL_AL:");
+                Serial.println(alertLevelTrigger);
+                
+                Serial.print("SHFRPT:");
+                Serial.println(sendReportOnLevelShift);
+                
+                Serial.print("FL:");
+                Serial.println(flowLevels);
+                
+                Serial.print("FL_MS:");
+                Serial.print(flowLevelMeasurements[0]);
+                Serial.print(',');
+                Serial.print(flowLevelMeasurements[1]);
+                Serial.print(',');
+                Serial.print(flowLevelMeasurements[2]);
+                Serial.print(',');
+                Serial.print(flowLevelMeasurements[3]);
+                Serial.print(',');
+                Serial.println(flowLevelMeasurements[4]);
+                
+                Serial.print("FL_AL:");
+                Serial.println(flowLevelTrigger);
+                */
+                return true;
         }
         else {
             return false;
@@ -753,8 +828,27 @@ boolean recordData() {
         uint32_t scanStart = now.unixtime();
 
         lastDepth = checkDepth(); // Get the current depth
-        lastDepth = depthOffset - lastDepth;
+        if ((depthOffset - lastDepth) < 0) {
+            lastDepth = 0;
+        }
+        else {
+            lastDepth = depthOffset - lastDepth;
+        }
         lastLevel = checkLevelStatus(lastDepth);
+
+        /*
+        // TODO remove these
+        Serial.print("\nDepth Reading: ");
+        Serial.print(lastDepth);
+        Serial.print("cm-level");
+        Serial.print(lastLevel);
+
+        // TODO remove these
+        Serial.print("\nFlow Rate Reading: ");
+        Serial.print(flowRate);
+        Serial.print("l/min-level");
+        Serial.println(lastFlowLevel);
+        */
 
         // Keep track of when the depth scan finished
         now = RTC.now();
@@ -817,8 +911,8 @@ boolean recordData() {
             if (alertMode) {
                 // check if alert time should be refreshed
                 if (
-                    (checkLevelStatus(lastDepth) >= alertLevelTrigger) ||
-                    (checkFlowLevelStatus(flowRate) >= flowLevelTrigger)
+                    (lastLevel >= alertLevelTrigger) ||
+                    (lastFlowLevel >= flowLevelTrigger)
                     ) {
                     alertTime = millis();
                 }
@@ -833,22 +927,28 @@ boolean recordData() {
                 }
                 else {
                     // if both flow rate and depth are at danger levels
-                    if (checkLevelStatus(lastDepth) >= alertLevelTrigger && checkFlowLevelStatus(flowRate) >= flowLevelTrigger) {
+                    if (lastLevel >= alertLevelTrigger && lastFlowLevel >= flowLevelTrigger) {
                         sendSMS('E');
                     }
                     // if only flow rate is at danger levels
-                    else if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                    else if (lastFlowLevel >= alertLevelTrigger) {
                         sendSMS('C');
                     }
                     // if only depth is at danger levels
-                    else if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                    else if (lastLevel >= alertLevelTrigger) {
                         sendSMS('D');
                     }
                 }
             }
-            else if (lastLevel != checkLevelStatus(lastDepth)) {
-                lastLevel = checkLevelStatus(lastDepth);
-                sendSMS('A');
+            // if the depth level shifted
+            else if (oldLevels[0] != lastLevel) {
+                oldLevels[0] = lastLevel;
+                sendSMS('K');
+            }
+            // if the flow level shifted
+            else if (oldLevels[1] != lastFlowLevel) {
+                oldLevels[1] = lastFlowLevel;
+                sendSMS('L');
             }
         }
         
@@ -960,6 +1060,7 @@ boolean setTime() {
     }
 }
 
+/*
 // Sets the time for the RTC Module
 boolean old_setTime() {
     timeoutStart = millis();
@@ -1082,6 +1183,7 @@ boolean old_setTime() {
 
     return true;
 }
+*/
 
 void parseMessage(char type) {
     byte messageTemplate[5] = {77,83,71,type};
@@ -1349,6 +1451,16 @@ int getGSMSignal() {
     return returnValue;
 }
 
+/*
+// Modifiend SendSMS for debugging
+boolean sendSMS(char messageType) {
+    digitalWrite(ledConnected,HIGH);
+    parseMessage(messageType);
+    digitalWrite(ledConnected,LOW);
+    return false;
+}
+*/
+
 // Sends an SMS with the GSM Module. Returns true if sending is successful
 boolean sendSMS(char messageType) {
     digitalWrite(ledConnected,HIGH);
@@ -1478,6 +1590,7 @@ boolean updateConfig() {
     return false;
 }
 
+/*
 boolean updateConfig_old() {
     timeoutStart = millis();
     boolean byteStreamActive = false;
@@ -1500,6 +1613,7 @@ boolean updateConfig_old() {
     }
     return false;
 }
+*/
 
 boolean overwriteFile(String data, String file) {
     if (sdCardReady) {
