@@ -1083,7 +1083,99 @@ boolean old_setTime() {
     return true;
 }
 
+// Modified parseMessage method that prints to Serial monitor
 void parseMessage(char type) {
+    byte messageTemplate[5] = {77,83,71,type};
+    boolean readField = false;
+
+    DateTime now = RTC.now();
+
+    openFile = SD.open(messageTemplate);
+    if (openFile) {
+        for (int x = 0; x < 25; x++) {
+            Serial.print('=');
+        }
+        Serial.println();
+        while (openFile.available()) {
+            byte readByte = openFile.read();
+            if (!readField) {
+                // if readByte is a dollar sign
+                if (readByte == 36) {
+                    readField = true;
+                }
+                else {
+                    // TODO Modify this to send the bytes to software serial
+                    Serial.write(readByte);
+                }
+            }
+            else {
+                readByte -= 64; // deduct 64 from the read byte so that the alphabet-based counting starts with 1 for letter 'A'
+                switch (readByte) {
+                    case 1: // A - Date
+                        Serial.print(now.year(), DEC);
+                        Serial.write(47); // backward slash
+                        Serial.print(now.month(), DEC);
+                        Serial.write(47); // backward slash
+                        Serial.print(now.day(), DEC);
+                        break;
+                    case 2: // B - Time
+                        Serial.print(now.hour(), DEC);
+                        Serial.write(58); // colon
+                        Serial.print(now.minute(), DEC);
+                        Serial.write(58); // colon
+                        Serial.print(now.second(), DEC);
+                        break;
+                    case 3: // C - Depth Level
+                        Serial.print(lastLevel);
+                    break;
+                    case 4: // D - Depth
+                        Serial.print(lastDepth);
+                        break;
+                    case 5: // E - Depth danger level
+                        Serial.print(alertLevelTrigger);
+                        break;
+                    case 6: // F - Depth danger measurement
+                        Serial.print(levelMeasurements[alertLevelTrigger - 1]);
+                        break;
+                    case 7: // G - Flow Rate Level
+                        Serial.print(lastFlowLevel);
+                    case 8: // H - Flow Rate
+                        Serial.print(flowRate);
+                        break;
+                    case 9: // I - Flow Rate danger level
+                        Serial.print(flowLevelTrigger);
+                        break;
+                    case 10: // J - Flow Rate danger measurement
+                        Serial.print(flowLevelMeasurements[flowLevelTrigger - 1]);
+                        break;
+                    case 11: // K - Error code
+                        Serial.print(lastErrorCode);
+                        break;
+                    case 12: // L - Scan interval override
+                        Serial.print(scanIntervalOverride);
+                        break;
+                    case 13: // M - Revert duration
+                        Serial.print(revertTime);
+                        break;
+                    case 14: // N - Revert time estimate
+                        Serial.print(lastFlowLevel);
+                        break;
+                }
+                readField = false;
+            }
+        }
+        openFile.close();
+        Serial.println();
+        for (int x = 0; x < 25; x++) {
+            Serial.print('=');
+        }
+        Serial.println();
+    }
+}
+
+/*
+// TODO Uncomment this when you're done
+void old_parseMessage(char type) {
     byte messageTemplate[5] = {77,83,71,type};
     boolean readField = false;
 
@@ -1162,6 +1254,7 @@ void parseMessage(char type) {
         openFile.close();
     }
 }
+*/
 
 // Commands for sending data to the app
 
