@@ -71,6 +71,7 @@ unsigned long alertTime;
 long lastDepth;
 byte lastLevel;
 byte lastFlowLevel;
+byte oldLevels[2] = {1,1};
 
 unsigned long timeoutStart;
 byte operationState = 0;
@@ -229,6 +230,10 @@ void loop() {
         // based on the number of pulses per second per units of measure (litres/minute in
         // this case) coming from the sensor.
         flowRate = ((1000.0 / (millis() - oldFlowRateMeasureTime)) * pulseCount) / calibrationFactor;
+
+        if (flowRate < 0) {
+            flowRate = 0;
+        }
         
         // Note the time this processing pass was executed. Note that because we've
         // disabled interrupts the millis() function won't actually be incrementing right
@@ -776,7 +781,7 @@ boolean applyConfigFile(String selectedConfig) {
                 Serial.print(',');
                 Serial.print(flowLevelMeasurements[3]);
                 Serial.print(',');
-                Serial.println(levelMeaflowLevelMeasurementssurements[4]);
+                Serial.println(flowLevelMeasurements[4]);
                 
                 Serial.print("FL_AL:");
                 Serial.println(flowLevelTrigger);
@@ -824,7 +829,12 @@ boolean recordData() {
         uint32_t scanStart = now.unixtime();
 
         lastDepth = checkDepth(); // Get the current depth
-        lastDepth = depthOffset - lastDepth;
+        if ((depthOffset - lastDepth) < 0) {
+            lastDepth = 0;
+        }
+        else {
+            lastDepth = depthOffset - lastDepth;
+        }
         lastLevel = checkLevelStatus(lastDepth);
 
         // TODO remove these
@@ -900,8 +910,8 @@ boolean recordData() {
             if (alertMode) {
                 // check if alert time should be refreshed
                 if (
-                    (checkLevelStatus(lastDepth) >= alertLevelTrigger) ||
-                    (checkFlowLevelStatus(flowRate) >= flowLevelTrigger)
+                    (lastLevel >= alertLevelTrigger) ||
+                    (lastFlowLevel >= flowLevelTrigger)
                     ) {
                     alertTime = millis();
                 }
@@ -916,22 +926,28 @@ boolean recordData() {
                 }
                 else {
                     // if both flow rate and depth are at danger levels
-                    if (checkLevelStatus(lastDepth) >= alertLevelTrigger && checkFlowLevelStatus(flowRate) >= flowLevelTrigger) {
+                    if (lastLevel >= alertLevelTrigger && lastFlowLevel >= flowLevelTrigger) {
                         sendSMS('E');
                     }
                     // if only flow rate is at danger levels
-                    else if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                    else if (lastFlowLevel >= alertLevelTrigger) {
                         sendSMS('C');
                     }
                     // if only depth is at danger levels
-                    else if (checkLevelStatus(lastDepth) >= alertLevelTrigger) {
+                    else if (lastLevel >= alertLevelTrigger) {
                         sendSMS('D');
                     }
                 }
             }
-            else if (lastLevel != checkLevelStatus(lastDepth)) {
-                lastLevel = checkLevelStatus(lastDepth);
-                sendSMS('A');
+            // if the depth level shifted
+            else if (oldLevels[0] != lastLevel) {
+                oldLevels[0] = lastLevel;
+                sendSMS('K');
+            }
+            // if the flow level shifted
+            else if (oldLevels[1] != lastFlowLevel) {
+                oldLevels[1] = lastFlowLevel;
+                sendSMS('L');
             }
         }
         
